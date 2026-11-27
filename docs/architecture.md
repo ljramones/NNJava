@@ -45,7 +45,7 @@ capability boundaries; see the
 Keep numerical providers optional, model-only IO independent of training, and
 benchmark/example dependencies outside production artifacts.
 
-The [fluent builder design](fluent-builders.md) adds immutable model definitions
+The [implemented builder API](model-builders.md) supplies immutable model definitions
 and ergonomic construction above the existing components. Builders validate
 shapes, configuration, sharing, and required capabilities before allocating
 executable model state.

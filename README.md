@@ -3,8 +3,9 @@
 A Java 25 library for constructing, training, and executing neural networks and
 transformers. The CPU implementation uses your Vectrix library for numerical
 kernels. Applications choose their architectures, weights, vocabulary, data, and
-training recipes in separate projects. Planned LLM support includes reusable
-generation, optional tokenizers, weight loading, pretraining, and fine-tuning.
+training recipes in separate projects. Fluent NN/causal-model definitions and CPU
+cache sessions are implemented. Generation, optional tokenizers, pretrained-weight
+loading, pretraining data workflows, and fine-tuning are planned.
 
 ## Build and run
 
@@ -16,6 +17,8 @@ mvn -Psimd test                               # Vectrix SIMD configuration
 mvn install                                   # Install modules, CPU starter, and BOM
 mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=--list
 mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=linear-regression
+mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=mlp-xor
+mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=causal-lm
 mvn -f examples/pom.xml verify                 # Independent training and inference consumers
 python3 tools/verify_module_consumers.py       # Model-only consumer on the module path
 ```
@@ -45,14 +48,21 @@ examples module, integration tests, and optional benchmarks/GPU adapters. The
 | Tensors | FP32/INT32/BOOL plus FP16/BF16 raw storage, checked shapes, views, positive-step slices, permutation, broadcasting, gather/scatter, concatenation, and casts. |
 | Mathematics | Elementwise functions, masks/selection, total/axis reductions, vector norms, and broadcast batched Vectrix GEMM. |
 | Differentiation | First-order reverse mode, shared-input accumulation, broadcast/index gradients, saved-storage mutation checks, and explicit lifetime handling. |
+| Fluent construction | Immutable sequential/Linear and causal-decoder definitions, versioned definition files, named components, inferred sample shapes, reproducible seeds, and pre-allocation validation. |
 | Networks | Recursive modules and parameters, Sequential, Linear, activations, embeddings, dropout, LayerNorm/RMSNorm, residuals, and tied weights. |
 | Training | MSE/cross-entropy, momentum/Nesterov SGD, AdamW, groups, schedules, finite checks, clipping, accuracy, datasets, and deterministic batching. |
 | Persistence | Named state, aliases, module configuration/modes, optimizer slots/counters, random counters, loader metadata, CRC validation, and atomic replacement. |
-| Transformers | Scaled/grouped-query attention, causal/padding masks, rotary positions, SwiGLU, multi-head projections, and inference KV caches. |
+| Transformers | Configurable multi-layer causal decoders, MHA/MQA/GQA, masks/RoPE, feed-forward variants, norms/tied readouts, and independent prefill/decode cache sessions. |
 
 Tests include independent numerical references, gradient checks, nonlinear XOR
 training, caller-defined transformer training, exact checkpoint resume, cached
 attention parity, and a deferred backend for ordering/failure cleanup.
+
+## Fluent model construction
+
+See the [implemented NN/LM builder guide](docs/model-builders.md) for reusable
+definitions, layer settings, definition/weight save-load, and cache sessions.
+Training continues to support explicit loops; the Trainer builder is planned.
 
 ## Compose a network
 
@@ -121,6 +131,7 @@ kernels and lists the upstream requests. CPU users have no native GPU dependenci
 ## Plans and guides
 
 - [CPU API guide](docs/cpu-guide.md)
+- [Implemented NN/LM builders and cache sessions](docs/model-builders.md)
 - [Implemented module migration and GPU foundation](docs/module-migration.md)
 - [Implementation roadmap and status](docs/roadmap.md)
 - [LLM capabilities and delivery milestones](docs/llm-roadmap.md)
@@ -135,8 +146,8 @@ kernels and lists the upstream requests. CPU users have no native GPU dependenci
 - History: the original [DynamisGPU rework plan](docs/history/dynamisgpu-rework.md)
   and [execution commission](docs/history/dynamisgpu-commission.md)
 
-Convolution/pooling, RNN/LSTM/GRU layers, fluent creation APIs, and their runnable
-architecture examples are planned in the roadmap. Mixed precision,
+Convolution/pooling, RNN/LSTM/GRU layers, branched builders, Trainer, and broader
+architecture examples remain planned in the roadmap. Mixed precision,
 nested/higher-order differentiation, graph retention, distributed execution, and
 further performance work remain later extensions. A production LLM and its
 application behavior belong in the downstream model repository.

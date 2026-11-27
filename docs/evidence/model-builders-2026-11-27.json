@@ -1,0 +1,157 @@
+{
+  "date": "2026-11-27",
+  "vectrix": "4.1.0",
+  "dynamisgpu": "1.14.1",
+  "milestone": "Fluent NN/LM definitions, decoder composition, persistence, and CPU cache sessions",
+  "totals": {
+    "tests": 95,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": {
+    "org.dynamisengine.nn.backend.gpu.GpuCompletionTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.backend.gpu.GpuHardwareTest": {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ProviderIsolationTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ShapeAndLayoutTest": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.examples.ExamplesSmokeTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.AutogradTest": {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.CausalLanguageModelTest": {
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.CpuTrainingAndStateTest": {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ExecutionContextTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ExpandedCpuTest": {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.FluentNetworkTest": {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.KernelContractsTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.LegacyArchiveCompatibilityTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.LowPrecisionStorageTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ProviderDiscoveryTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.TensorOperationsTest": {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.TrainingTest": {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.TransformerTest": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "checks": {
+    "scalar_and_metal_reactor": "passed",
+    "simd_metal_and_benchmark_packaging": "passed",
+    "legacy_training_consumer": "passed",
+    "model_only_named_module_nn_and_lm_consumer": "passed",
+    "exact_and_throughput_named_module_metal_consumers": "passed",
+    "definition_round_trip_and_constructor_rollback": "passed",
+    "tied_embedding_finite_difference_gradient": "passed",
+    "multiblock_cached_and_full_logit_parity": "passed",
+    "dropout_optimizer_checkpoint_resume": "bit-reproducible"
+  },
+  "examples": {
+    "mlp_xor": {
+      "seed": 42,
+      "first_loss": 0.724356,
+      "last_reported_loss": 0.001683,
+      "accuracy": 1.0
+    },
+    "small_causal_decoder": {
+      "seed": 42,
+      "blocks": 2,
+      "first_cross_entropy": 1.583492,
+      "last_reported_cross_entropy": 0.005194,
+      "token_accuracy": 1.0,
+      "next_token_ids": [
+        3,
+        4
+      ]
+    }
+  },
+  "limits": [
+    "Examples use small deterministic synthetic fixtures; no pretrained-model or throughput claim.",
+    "New complete NN/LM builders currently execute on the CPU; full GPU model operation coverage is pending.",
+    "Vulkan/MoltenVK have not been exercised in these NNJava checks."
+  ]
+}

@@ -34,9 +34,18 @@ public record ComponentSpec(String type, int version, String name,
         catch (NumberFormatException error) { throw new IllegalArgumentException(name + ": invalid integer " + key, error); }
     }
 
-    public int intValue(String key) { return Math.toIntExact(longValue(key)); }
-    public float floatValue(String key) { return Float.parseFloat(attribute(key)); }
-    public double doubleValue(String key) { return Double.parseDouble(attribute(key)); }
+    public int intValue(String key) {
+        try { return Math.toIntExact(longValue(key)); }
+        catch (ArithmeticException error) { throw new IllegalArgumentException(name + ": integer out of range " + key, error); }
+    }
+    public float floatValue(String key) {
+        try { return Float.parseFloat(attribute(key)); }
+        catch (NumberFormatException error) { throw new IllegalArgumentException(name + ": invalid float " + key, error); }
+    }
+    public double doubleValue(String key) {
+        try { return Double.parseDouble(attribute(key)); }
+        catch (NumberFormatException error) { throw new IllegalArgumentException(name + ": invalid number " + key, error); }
+    }
     public boolean booleanValue(String key) {
         return switch (attribute(key)) {
             case "true" -> true;

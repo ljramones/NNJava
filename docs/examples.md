@@ -1,13 +1,18 @@
 # Neural Network and LLM Examples Module
 
 `nnjava-examples` is a first-class Maven module with regression and small
-transformer training examples. Fluent builders and the broader architecture
-catalog below remain planned. It serves as a learning
+transformer training examples, plus fluent MLP and causal-decoder workflows.
+The broader architecture catalog below remains planned where its layers are absent. It serves as a learning
 catalog, an API usability check, and end-to-end validation of the library.
 
 Reusable layers and cells belong in the production modules. Complete example
 architectures, task-specific data preparation, and training recipes belong here.
 Production modules must not depend on examples.
+
+Current runner entries include `linear-regression`, `transformer` (direct component
+composition), `mlp-xor`, and `causal-lm`. The latter two train, save/reload definitions
+and weights, and run as CPU smoke tests. The causal example also verifies cached
+decoding. See the [builder API guide](model-builders.md).
 
 ## Architecture catalog and order
 

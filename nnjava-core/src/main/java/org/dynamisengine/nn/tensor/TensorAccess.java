@@ -59,6 +59,9 @@ public final class TensorAccess {
         return tensor.state.tapeId;
     }
 
+    /** Internal mutation generation, also used to reject stale inference caches. */
+    public static long storageVersion(Tensor tensor) { tensor.checkOpen(); return tensor.state.storage.version; }
+
     public static void setGradient(Tensor tensor, Tensor gradient) {
         tensor.checkOpen();
         Tensor retained = org.dynamisengine.nn.ops.Ops.copy(gradient);

@@ -31,6 +31,12 @@ public final class Parameter implements AutoCloseable {
         return value.retain();
     }
 
+    /** Storage mutation generation, for invalidating inference state after weight updates. */
+    public long mutationVersion() {
+        if (closed) { throw new IllegalStateException("Parameter is closed"); }
+        return org.dynamisengine.nn.tensor.TensorAccess.storageVersion(value);
+    }
+
     public void clearGradient() {
         try (Tensor tensor = value()) {
             tensor.clearGradient();

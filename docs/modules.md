@@ -53,6 +53,10 @@ application implementation. Transformer must not import generation. Format reade
 return neutral metadata/tensor/block descriptors; provider-specific loaders build
 GPU matrices from those descriptors, keeping io independent of the GPU adapter.
 The [LLM roadmap](llm-roadmap.md) defines the capability and acceptance sequence.
+The first NN/LM builders live in nn/transformer, while neutral `ComponentSpec`
+trees live in core and `ModelDefinitions` file IO stays backend-neutral in io.
+CPU decoder cache sessions are in transformer; future generation orchestration
+will compose them without a reverse dependency.
 
 ## Dependency cuts required by current code
 

@@ -5,10 +5,10 @@ assemble while retaining custom modules and explicit runtime ownership. Builders
 produce reusable configurations and definitions; a terminal build operation creates
 the executable module in a chosen context.
 
-Implemented now: immutable sequential and Linear definitions, named NN builders,
-layer specifications, custom-layer decoder hooks, and checked definition files.
-Transformer, generation, and Trainer sections below describe subsequent work unless
-explicitly marked implemented.
+Implemented now: sequential/Linear and causal-language-model definitions, named
+NN builders, decoder configuration, custom-layer decoder hooks, checked definition
+files, and CPU cache sessions. The [API guide](model-builders.md) documents exact
+behavior and runnable examples. Generation and Trainer builders remain proposed.
 
 ## Builder layers
 
@@ -67,11 +67,10 @@ Custom `LayerDefinition` implementations supply inference, validation, construct
 and a stable `ComponentSpec`; `fromSpec(spec, explicitDecoderMap)` restores their
 registered type IDs. Custom factories own their construction-failure cleanup.
 
-Layer-level builders provide advanced options without overloading the short DSL:
-initialization, bias, activation, precision overrides, and shared parameters.
-Custom modules and custom component specifications remain available as escape
-hatches. Residual/concatenation branches follow after sequential construction is
-stable.
+Initial layer specifications expose bias, activation, shape, and deterministic
+seeds. Additional initializer families, precision overrides, and branch/merge
+builders remain planned. Direct modules and custom layer definitions remain
+available for application-specific composition.
 
 ## Classical architecture examples
 
@@ -103,7 +102,7 @@ Provide comparable RNN and GRU configuration, including state reset, masks,
 sequence lengths, and optional truncated backpropagation. Keep architecture
 examples in `nnjava-examples` and reusable convolution/recurrent layers in nn.
 
-## Language model example
+## Implemented language model builder
 
 ```java
 var definition = CausalLanguageModel.builder()
@@ -132,8 +131,8 @@ support customization of blocks, position handling, masking, weight sharing, and
 feed-forward composition without requiring an existing named model family.
 
 Build the language-model facade from the same public components applications use.
-Provide separate inference-session objects for KV caches and temporary state;
-weights remain model-owned. Tokenization and generation policy must not be mandatory
+The implemented `model.newSession(batchSize)` owns per-block KV caches and checks
+mode, context capacity, and stale weights. It borrows model-owned parameters. Tokenization and generation policy must not be mandatory
 dependencies of model construction.
 
 The [LLM roadmap](llm-roadmap.md) defines generation-session syntax, tokenizer and
@@ -142,7 +141,7 @@ Generation settings are separate reusable definitions. A generation session borr
 model weights and owns its cache, sampling state, and temporary resources; it lives
 in generation so transformer does not acquire a reverse dependency.
 
-## Training example
+## Training builder proposal
 
 ```java
 try (var trainer = Trainer.builder()

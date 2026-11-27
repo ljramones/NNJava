@@ -23,6 +23,10 @@ and enables the
 incubator Vector API in test JVMs. For an application running inside Maven's JVM, start Maven with
 `MAVEN_OPTS=--add-modules=jdk.incubator.vector` when using the SIMD classifier.
 
+The [NN/LM builder guide](model-builders.md) documents immutable definitions,
+named sequential networks, configurable causal decoders, and cache sessions.
+These use the same tensor/module/training contracts described below.
+
 ## Tensors and operations
 
 `ExecutionContext.cpu()` owns a thread-confined CPU backend. Factories copy host

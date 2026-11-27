@@ -2,7 +2,8 @@
 
 The 2026-11-27 implementation extracts the existing CPU framework into Maven and
 JPMS modules, upgrades numerical dependencies, and adds an initial optional GPU
-adapter. Fluent model definitions and full GPU NN/LLM execution remain roadmap work.
+adapter. Subsequent [NN/LM builders and CPU cache sessions](model-builders.md)
+are now implemented; full GPU NN/LLM execution remains roadmap work.
 
 ## Dependencies and consumption
 
