@@ -4,8 +4,10 @@ A Java 25 library for constructing, training, and executing neural networks and
 transformers. The CPU implementation uses your Vectrix library for numerical
 kernels. Applications choose their architectures, weights, vocabulary, data, and
 training recipes in separate projects. Fluent NN/causal-model definitions and CPU
-cache sessions are implemented. Generation, optional tokenizers, pretrained-weight
-loading, pretraining data workflows, and fine-tuning are planned.
+cache sessions and fluent training orchestration are implemented. General-purpose
+generation/tokenizer APIs, pretrained-weight loading, pretraining data workflows,
+and fine-tuning remain on the roadmap. A separate experimental GGUF/Metal path is
+described below.
 
 ## Build and run
 
@@ -19,6 +21,7 @@ mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=--list
 mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=linear-regression
 mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=mlp-xor
 mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=causal-lm
+mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=autoencoder
 mvn -f examples/pom.xml verify                 # Independent training and inference consumers
 python3 tools/verify_module_consumers.py       # Model-only consumer on the module path
 ```
@@ -50,7 +53,7 @@ examples module, integration tests, and optional benchmarks/GPU adapters. The
 | Differentiation | First-order reverse mode, shared-input accumulation, broadcast/index gradients, saved-storage mutation checks, and explicit lifetime handling. |
 | Fluent construction | Immutable sequential/Linear and causal-decoder definitions, versioned definition files, named components, inferred sample shapes, reproducible seeds, and pre-allocation validation. |
 | Networks | Recursive modules and parameters, Sequential, Linear, activations, embeddings, dropout, LayerNorm/RMSNorm, residuals, and tied weights. |
-| Training | MSE/cross-entropy, momentum/Nesterov SGD, AdamW, groups, schedules, finite checks, clipping, accuracy, datasets, and deterministic batching. |
+| Training | Fluent Trainer/optimizer/loader APIs, MSE/cross-entropy, SGD/AdamW, groups/schedules, clipping, weighted evaluation, callbacks, stopping/cancellation, and deterministic batching. |
 | Persistence | Named state, aliases, module configuration/modes, optimizer slots/counters, random counters, loader metadata, CRC validation, and atomic replacement. |
 | Transformers | Configurable multi-layer causal decoders, MHA/MQA/GQA, masks/RoPE, feed-forward variants, norms/tied readouts, and independent prefill/decode cache sessions. |
 
@@ -62,7 +65,9 @@ attention parity, and a deferred backend for ordering/failure cleanup.
 
 See the [implemented NN/LM builder guide](docs/model-builders.md) for reusable
 definitions, layer settings, definition/weight save-load, and cache sessions.
-Training continues to support explicit loops; the Trainer builder is planned.
+The [training guide](docs/training-guide.md) covers Trainer configuration, data,
+evaluation, callbacks, and reproducible mid-epoch checkpoint resume. Explicit
+training loops remain supported.
 
 ## Compose a network
 
@@ -128,10 +133,18 @@ ownership, distribution and the remaining gates, and
 [numerical coverage](docs/numerical-coverage.md) maps every operation to its
 kernels and lists the upstream requests. CPU users have no native GPU dependencies.
 
+The merged [GGUF Metal experiment](nnjava-gguf-metal/README.md) separately supplies
+a Llama 3.1 Q4_K_M reader, checkpoint tokenizer, and paged inference session. It
+builds independently against private `1.15.0-step12-SNAPSHOT` GPU artifacts and
+Vectrix 4.0.0; it is outside the main reactor/BOM. Its README records model-specific
+accuracy and hardware limits. It does not change the pinned general-purpose
+backend or imply complete GPU coverage through the tensor API.
+
 ## Plans and guides
 
 - [CPU API guide](docs/cpu-guide.md)
 - [Implemented NN/LM builders and cache sessions](docs/model-builders.md)
+- [Fluent Trainer, evaluation, and checkpoint resume](docs/training-guide.md)
 - [Implemented module migration and GPU foundation](docs/module-migration.md)
 - [Implementation roadmap and status](docs/roadmap.md)
 - [LLM capabilities and delivery milestones](docs/llm-roadmap.md)
@@ -146,7 +159,7 @@ kernels and lists the upstream requests. CPU users have no native GPU dependenci
 - History: the original [DynamisGPU rework plan](docs/history/dynamisgpu-rework.md)
   and [execution commission](docs/history/dynamisgpu-commission.md)
 
-Convolution/pooling, RNN/LSTM/GRU layers, branched builders, Trainer, and broader
+Convolution/pooling, RNN/LSTM/GRU layers, branched builders, and broader
 architecture examples remain planned in the roadmap. Mixed precision,
 nested/higher-order differentiation, graph retention, distributed execution, and
 further performance work remain later extensions. A production LLM and its

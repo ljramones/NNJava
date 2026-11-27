@@ -110,7 +110,9 @@ Builders should make the common path short while retaining lower-level APIs:
 
 The [fluent builder proposal](fluent-builders.md) gives example syntax and
 validation/ownership rules. NN and causal-model construction are implemented;
-Trainer, generation, and classical-family extensions remain proposed.
+Trainer, optimizer definitions, loader builders, weighted evaluation, callbacks,
+stopping, and loop checkpoints are implemented; see the [training guide](training-guide.md).
+Generation and classical-family extensions remain proposed.
 
 ## LLM capability track
 
@@ -140,14 +142,14 @@ its planned builder or orchestration API already exists.
 | NN-02                         | Initialization, parameter freezing, and sharing APIs                                                  | Basic initialization/sharing exist; extensions planned                                                            | P1 R2/R4              |
 | NN-03                         | Convolution, pooling, and vision-oriented layers                                                      | Planned for CNN examples                                                                                          | P1 R4                 |
 | NN-04                         | Vanilla RNN, LSTM, and GRU cells/layers with explicit state                                           | Planned for recurrent examples                                                                                    | P1 R4                 |
-| TRAIN-01                      | Optimizers, groups, schedules, clipping, and losses                                                   | CPU primitives implemented; fluent configuration planned                                                          | P0 R3                 |
-| TRAIN-02                      | Trainer, callbacks, validation, early stopping, cancellation                                          | Planned                                                                                                           | P1 R3                 |
-| DATA-01                       | Deterministic batching and loader state                                                               | Basic implementation exists; builders planned                                                                     | P0 R3                 |
+| TRAIN-01 | Optimizers, groups, schedules, clipping, and losses | CPU primitives and immutable fluent AdamW/SGD settings implemented; advanced groups use factories | P0 R3 |
+| TRAIN-02 | Trainer, callbacks, validation, early stopping, cancellation | Implemented supervised CPU orchestration for NN/LM modules with weighted evaluation and cooperative stopping | P1 R3 |
+| DATA-01 | Deterministic batching and loader state | Implemented fluent loaders, configuration checks, and reproducible cursor/epoch restore | P0 R3 |
 | DATA-02                       | Sequence padding/packing, length-aware batches, stream adapters                                       | Partial mask support; document-boundary packing and resumable token streams planned                               | P1 R3/R5 L3           |
 | IO-01                         | Definition/model save/load and schema migration                                                       | Definition codec and model archives implemented; automatic schema migration remains planned                                                         | P0 R2/R3              |
-| IO-02 | Full reproducible training resume | CPU checkpoints integrated with new models; multi-block dropout/optimizer resume verified | P0 R3 |
+| IO-02 | Full reproducible training resume | Trainer checkpoints include partial metrics, loop/stopping state and loaders; interrupted/resumed final archives match byte for byte | P0 R3 |
 | IO-03                         | Extensible external tensor archive codecs                                                             | Planned codec extension points; explicit model-family mappings stay downstream                                    | P2 R5                 |
-| IO-04                         | GGUF container reader: neutral tensor/metadata/quantized-block descriptors                            | Parser belongs in NNJava; provider materialization reuses upstream block formats                                  | P1 R5 L2 with EXEC-05 |
+| IO-04 | GGUF container reader: neutral tensor/metadata/quantized-block descriptors | Experimental reader merged in standalone Metal module; neutral modular API remains planned | P1 R5 L2 with EXEC-05 |
 | IO-05                         | Safetensors and supported sharded weight indexes; bounded loading                                     | Planned; backend-neutral parsing                                                                                  | P1 R5 L2              |
 | LM-01                         | Configurable attention, gated blocks, masks, norms, residuals, tied weights                           | CPU decoder blocks and configuration builders implemented; further variants planned                                                | P0 R5 L1              |
 | LM-02 | Decoder and causal-language-model definitions/builders | Implemented CPU causal-model definition and builder with distinct block weights | P0 R5 L1 |
@@ -169,7 +171,7 @@ its planned builder or orchestration API already exists.
 | LM-18                         | Preference objectives such as DPO and reference-model handling                                        | Candidate expansion; separate from a full RL platform                                                             | P2 R5 L6              |
 | EX-01                         | First-class examples module and shared runner                                                         | Implemented with regression and tiny-transformer examples                                                         | P0 R1                 |
 | EX-02 | MLP example | Implemented fluent XOR MLP with definition and weight save/load | P0 R2/R3 |
-| EX-03                         | Autoencoder example                                                                                   | Planned                                                                                                           | P1 R3/R4              |
+| EX-03 | Autoencoder example | Implemented bottleneck reconstruction with Trainer, shuffled data, evaluation, and exact resume | P1 R3/R4 |
 | EX-04 / EX-05 / EX-06 / EX-07 | CNN, RNN, LSTM, and GRU examples                                                                      | Planned                                                                                                           | P1 R4                 |
 | EX-08                         | Residual CNN example                                                                                  | Planned follow-on                                                                                                 | P1 after CNN support  |
 | EX-09 | Small causal transformer example | Implemented direct and fluent decoder examples with training, restore and cache checks | P0 R5 |
@@ -202,8 +204,9 @@ behavior and keep release gates explicit.
 ## First decisions and next design slice
 
 The module/provider foundation, CPU migration, first NN/LM builders, definition
-persistence, and CPU cache sessions are implemented. Next expand GPU numerical
-coverage, add Trainer/data ergonomics, and prepare the real-model loading path
+persistence, CPU cache sessions, and the supervised Trainer/data APIs are implemented.
+Next expand GPU numerical coverage, add sequence-data packing/streaming, and
+prepare the general-purpose real-model loading path
 with independent correctness gates. Preserve
 separate milestones for real-model inference and LM training. Use a nonlinear
 classifier and a caller-configured causal language model as consumer API tests.

@@ -5,6 +5,7 @@ import org.dynamisengine.nn.runtime.ExecutionContext;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -22,7 +23,9 @@ public final class DataLoader implements AutoCloseable {
     private boolean closed;
 
     public DataLoader(ExecutionContext context, Dataset dataset, int batchSize, boolean shuffle, boolean dropLast, long seed) {
-        if (batchSize <= 0 || dataset.size() > Integer.MAX_VALUE - 8L) {
+        Objects.requireNonNull(context).ensureOpen();
+        Objects.requireNonNull(dataset);
+        if (batchSize <= 0 || dataset.size() < 0 || dataset.size() > Integer.MAX_VALUE - 8L) {
             throw new IllegalArgumentException("Invalid loader size/batch size");
         }
         this.context = context;
@@ -82,15 +85,49 @@ public final class DataLoader implements AutoCloseable {
     }
 
     public void restore(State state) {
+        validateState(state);
+        int[] restored = ordering(state.epoch);
+        epoch = state.epoch;
+        cursor = state.cursor;
+        order = restored;
+    }
+
+    /** Validate compatibility without changing the current ordering or cursor. */
+    public void validateState(State state) {
         ensureOpen();
         if (state.seed != seed || state.batchSize != batchSize || state.shuffle != shuffle || state.dropLast != dropLast || state.size != size
                 || state.epoch < 0 || state.cursor < 0 || state.cursor > size || state.cursor != size && state.cursor % batchSize != 0) {
             throw new IllegalArgumentException("Loader state/configuration mismatch");
         }
-        int[] restored = ordering(state.epoch);
-        epoch = state.epoch;
-        cursor = state.cursor;
-        order = restored;
+    }
+
+    public ExecutionContext context() {
+        ensureOpen();
+        return context;
+    }
+
+    public static Builder builder(ExecutionContext context, Dataset dataset) {
+        return new Builder(context, dataset);
+    }
+
+    /** Borrows the context and dataset; each build starts an independent cursor. */
+    public static final class Builder {
+        private final ExecutionContext context;
+        private final Dataset dataset;
+        private int batchSize = 32;
+        private boolean shuffle, dropLast;
+        private long seed;
+
+        private Builder(ExecutionContext context, Dataset dataset) {
+            this.context = Objects.requireNonNull(context);
+            this.dataset = Objects.requireNonNull(dataset);
+        }
+
+        public Builder batchSize(int value) { batchSize = value; return this; }
+        public Builder shuffle(boolean value) { shuffle = value; return this; }
+        public Builder dropLast(boolean value) { dropLast = value; return this; }
+        public Builder seed(long value) { seed = value; return this; }
+        public DataLoader build() { return new DataLoader(context, dataset, batchSize, shuffle, dropLast, seed); }
     }
 
     private void ensureOpen() {
@@ -107,6 +144,11 @@ public final class DataLoader implements AutoCloseable {
 
     public record State(long seed, long epoch, int cursor, int batchSize, boolean shuffle, boolean dropLast, int size) {
         public static State fromMetadata(Map<String, String> values) {
+            for (String key : new String[]{"loader.shuffle", "loader.dropLast"}) {
+                if (!"true".equals(values.get(key)) && !"false".equals(values.get(key))) {
+                    throw new IllegalArgumentException("Invalid loader boolean " + key);
+                }
+            }
             return new State(Long.parseLong(values.get("loader.seed")), Long.parseLong(values.get("loader.epoch")), Integer.parseInt(values.get("loader.cursor")),
                     Integer.parseInt(values.get("loader.batchSize")), Boolean.parseBoolean(values.get("loader.shuffle")), Boolean.parseBoolean(values.get("loader.dropLast")), Integer.parseInt(values.get("loader.size")));
         }

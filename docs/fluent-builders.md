@@ -8,7 +8,8 @@ the executable module in a chosen context.
 Implemented now: sequential/Linear and causal-language-model definitions, named
 NN builders, decoder configuration, custom-layer decoder hooks, checked definition
 files, and CPU cache sessions. The [API guide](model-builders.md) documents exact
-behavior and runnable examples. Generation and Trainer builders remain proposed.
+behavior and runnable examples. Trainer APIs are described in the
+[training guide](training-guide.md); generation builders remain proposed.
 
 ## Builder layers
 
@@ -141,18 +142,18 @@ Generation settings are separate reusable definitions. A generation session borr
 model weights and owns its cache, sampling state, and temporary resources; it lives
 in generation so transformer does not acquire a reverse dependency.
 
-## Training builder proposal
+## Implemented training builders
 
 ```java
 try (var trainer = Trainer.builder()
         .model(model)
-        .optimizer(AdamW.builder().learningRate(0.001f).weightDecay(0.01f))
-        .loss(CrossEntropy.builder().ignoreIndex(-100))
-        .schedule(Schedules.warmupCosine(100, 10_000))
+        .optimizer(Optimizers.adamW().learningRate(.001f).weightDecay(.01f)
+                .schedule(LearningRateSchedule.warmupCosine(100, 10_000, .1f)).define())
+        .objective(Objectives.crossEntropy(-100))
         .clipGlobalNorm(1.0)
-        .checkpointEverySteps(500, checkpointDirectory)
+        .checkpointEvery(500, checkpointFile)
         .build()) {
-    trainer.fit(trainingData, validationData);
+    trainer.fit(trainingData, validationData, 20);
 }
 ```
 
@@ -161,10 +162,10 @@ for consistent batching, backward/update order, validation, metrics, callbacks,
 checkpointing, early stopping, and cancellation. It must work with both ordinary
 networks and caller-defined language models.
 
-The proposed ownership rule is that Trainer borrows its model and input loaders,
-and owns optimizer/work resources it creates from builder specifications. Attaching
-an already-created optimizer requires an explicit ownership policy. No hidden
-context, process-wide random generator, or background service is created.
+Trainer borrows its model and input loaders and owns the optimizer it creates
+from a definition or factory. Advanced parameter groups use an `OptimizerFactory`
+that returns a fresh owned optimizer. Contexts and random seeds remain explicit;
+callbacks run on the caller's context thread.
 
 ## Validation and reproducibility requirements
 

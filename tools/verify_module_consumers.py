@@ -33,6 +33,11 @@ def run(module, paths, *arguments, native=False):
     subprocess.run(command, check=True, cwd=root)
 
 numerics = [artifact(name, "4.1.0") for name in ("vectrix-core", "vectrix-ml")]
+training = [artifact(name, "0.1.0-SNAPSHOT") for name in
+            ("neuralnetworks", "nnjava", "nnjava-core", "nnjava-nn", "nnjava-transformer",
+             "nnjava-data", "nnjava-io", "nnjava-training", "nnjava-backend-vectrix")]
+run("example.nnjava.training/example.LibraryConsumer",
+    [root / "examples/consumer/target/classes", *training, *numerics])
 inference = [artifact(name, "0.1.0-SNAPSHOT") for name in
              ("nnjava-core", "nnjava-nn", "nnjava-transformer", "nnjava-io", "nnjava-backend-vectrix")]
 run("example.nnjava.inference/example.InferenceConsumer",

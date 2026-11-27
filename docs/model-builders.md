@@ -111,7 +111,8 @@ immutable and clean up their own allocations if their factory fails. Built-in
 constructors and network composition clean up partial construction.
 
 `StateArchive` remains independent of training. Full training resume uses
-`training.Checkpoint`; decoder tests cover tied weights, optimizer slots, dropout
+`training.Checkpoint`, or the [Trainer loop checkpoint API](training-guide.md);
+decoder tests cover tied weights, optimizer slots, dropout
 streams, mode, and identical subsequent updates after restore.
 
 ## Cached inference sessions

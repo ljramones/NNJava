@@ -1,7 +1,8 @@
 # Neural Network and LLM Examples Module
 
 `nnjava-examples` is a first-class Maven module with regression and small
-transformer training examples, plus fluent MLP and causal-decoder workflows.
+transformer training examples, fluent MLP and causal-decoder workflows, and a
+Trainer-based bottleneck autoencoder with checkpoint resume.
 The broader architecture catalog below remains planned where its layers are absent. It serves as a learning
 catalog, an API usability check, and end-to-end validation of the library.
 

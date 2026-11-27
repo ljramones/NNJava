@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-27",
+  "baseline": "360ab54",
+  "targets": {
+    "jdk": "25",
+    "vectrix": "4.1.0",
+    "dynamisgpu": "1.14.1"
+  },
+  "implemented": [
+    "Immutable AdamW/SGD definitions and optimizer factory extension point",
+    "Fluent deterministic DataLoader construction and nonmutating state validation",
+    "Supervised NN/LM Trainer with clipping, schedules and weighted evaluation",
+    "Synchronous callbacks, cooperative cancellation and validation-loss early stopping",
+    "Loop checkpoints with partial metrics, data cursors and stopping state",
+    "Bottleneck autoencoder and installed-artifact JPMS training consumer"
+  ],
+  "checks": [
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks clean verify",
+      "status": "passed",
+      "tests": 115,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Pgpu,metal install",
+      "status": "passed",
+      "tests": 115,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal",
+      "status": "passed",
+      "consumers": ["training", "model-only inference", "exact Metal", "throughput Metal"],
+      "device": "Apple M4 Max"
+    },
+    {
+      "command": "mvn -o -q -f nnjava-gguf-metal/pom.xml -Dmaven.repo.local=/private/tmp/dynamisgpu-step11-kernel-m2 clean verify",
+      "status": "passed",
+      "tests": 7,
+      "note": "Merged standalone experiment checked against its existing private runtime, outside the main reactor. No full GGUF model/hardware benchmark rerun."
+    }
+  ],
+  "new_trainer_tests": 19,
+  "new_example_smoke_tests": 1,
+  "resume": {
+    "interruption": "Two shuffled batches into a three-batch epoch",
+    "features": ["dropout", "AdamW moments", "warmup/cosine schedule", "clipping", "validation", "mixed caller modes"],
+    "comparison": "Final model/optimizer/loader/loop checkpoint bytes are identical after resumed and uninterrupted continuations"
+  },
+  "autoencoder": {
+    "initial_mse": 0.880245,
+    "final_mse": 0.002374,
+    "updates": 400,
+    "resume": "Exact output agreement with uninterrupted training"
+  },
+  "external_trainer_consumer": {
+    "initial_cross_entropy": 0.857545,
+    "restored_cross_entropy": 0.002700,
+    "updates": 200
+  },
+  "limits": [
+    "Synthetic examples establish correctness, not production LLM training performance",
+    "Trainer runs on the CPU path; full tensor GPU training coverage is pending",
+    "Cross-entropy denominator currently reads target IDs on the host",
+    "Corpus identity and callback state remain application responsibilities",
+    "Optimizer failures require known-checkpoint restore; arbitrary custom side effects are not rolled back",
+    "The optional GGUF experiment retains private Step 12 GPU and Vectrix 4.0.0 dependencies; the main reactor remains pinned to released targets"
+  ]
+}
