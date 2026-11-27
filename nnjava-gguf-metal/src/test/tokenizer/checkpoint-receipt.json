@@ -1,0 +1,16 @@
+{
+  "result": "2660 encode and 5320 decode comparisons, 128256 token pieces in both modes, EOG [128001, 128008, 128009]",
+  "checkpoint_sha256": "667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29",
+  "libllama_sha256": "aef3e6fe2a806c121470e0dfcf98107e8c8f17dea601008bb204619dc7a4e8a1",
+  "oracle_rows_sha256": "31999faaa9ec3335ccf08dc7a710fd5a95282ecd9b81e182dbbf471eb315bde9",
+  "inputs_sha256": "275450a9c8648a85a46574bdbdfbfe920fbcffe114bb50e32d0752f746b8aa58",
+  "eog": [
+    "128001",
+    "128008",
+    "128009"
+  ],
+  "token_pieces_sha256": [
+    "d97c0d33477dec053941ab913e613c801e70b01877d6ace2ced89d5132e871e0",
+    "e197e005aea06c7646781368863f9bfe72c8aabff4437a24f231c994fb9e068a"
+  ]
+}
