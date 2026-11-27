@@ -1,0 +1,7 @@
+# Llama 3.1 byte-level tokenizer parity
+
+The Java tokenizer reads GGUF's gpt2 / llama-bpe vocabulary, normal and control token types, byte-pair merges and BOS/EOS metadata. It implements the pinned Unicode number, letter and whitespace rules explicitly so a JDK Unicode upgrade can be qualified independently. The native classifier used to generate the table is captured by `character_ranges.cpp`.
+
+Encoding accepts Unicode scalar strings, optional explicit BOS and optional parsing of recognized special tokens. Ill-formed UTF-16 raises an exception. Decode concatenates token bytes, applies the model's English punctuation and contraction cleanup and replaces incomplete UTF-8 with U+FFFD. For verbatim streams use `tokenBytes` and feed the pieces to one incremental UTF-8 decoder. The tokenizer and its copied vocabulary data are immutable. Chat-template rendering is a separate operation.
+
+On the benchmark host, build the module with test classes and include its ordinary dependencies on the classpath. Use `python3 verify.py CHECKPOINT CLASSPATH` from this directory. The CPU-only C++ oracle loads the checkpoint vocabulary with the pinned llama.cpp library and compares every token's raw bytes in both display modes, every EOG flag, and tokenization and detokenization for deterministic Unicode, binary-safe, punctuation, special-token and multibyte cases. The test executes zero model layers.
