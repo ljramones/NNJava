@@ -15,6 +15,7 @@ import org.dynamisengine.gpu.primitives.GemmF16.Epilogue;
 final class MetalGraph implements AutoCloseable {
     static final int D = 4096, H = 32, KV = 8, HD = 128, KD = KV * HD, F = 14336, VOCAB = 128256;
     private static final int PAGE = 64, BATCH = 512;
+    private static final GemmF16.Shape FFN_DECODE = GemmF16.Shape.ofTransposedB(1, F, D, 1, 0);
     private static final Duration TIMEOUT = Duration.ofMinutes(4);
     private final GpuDevice device;
     private final Gguf file;
@@ -191,8 +192,13 @@ final class MetalGraph implements AutoCloseable {
         }
         project(e,tokenOutput,b.o,mid,m,Epilogue.NONE.withResidual(),null,in);
         norms.encode(e,Norms.Kind.RMS,mid,null,null,b.n2,null,norm,Norms.Shape.of(m,D,epsilon));
-        project(e,norm,b.up,up,m,Epilogue.NONE,null,null);
-        project(e,norm,b.gate,gate,m,Epilogue.NONE.withActivation(Epilogue.Activation.SILU).withGate(),up,null);
+        // GGUF validation fixes both weights to the same Q4_K dimensions. Respect a caller's reproducible TILED policy.
+        if (m == 1 && quant.algorithm(FFN_DECODE, b.up.shape) == QuantizedGemm.Algorithm.SKINNY) {
+            quant.encodeFusedQ4kUpGate(e, norm, b.up.shape, b.up.data, b.gate.shape, b.gate.data, gate);
+        } else {
+            project(e,norm,b.up,up,m,Epilogue.NONE,null,null);
+            project(e,norm,b.gate,gate,m,Epilogue.NONE.withActivation(Epilogue.Activation.SILU).withGate(),up,null);
+        }
         project(e,gate,b.down,out,m,Epilogue.NONE.withResidual(),null,mid);
     }
 
