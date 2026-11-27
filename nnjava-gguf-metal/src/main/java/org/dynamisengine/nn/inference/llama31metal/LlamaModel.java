@@ -145,6 +145,22 @@ public final class LlamaModel implements AutoCloseable {
         }
     }
 
+    /** One generation stream's sampler. A seed initializes the stream, and each call advances that stream. */
+    public static final class Sampler {
+        private final double temperature;
+        private final SplittableRandom rng;
+        public Sampler(double temperature, long seed) {
+            if (!Double.isFinite(temperature) || temperature < 0) throw new IllegalArgumentException("Invalid temperature");
+            this.temperature=temperature;
+            this.rng=new SplittableRandom(seed);
+        }
+        /** Select the next token from one complete vocabulary row. */
+        public int next(float[] logits) {
+            if (logits.length!=MetalGraph.VOCAB) throw new IllegalArgumentException("Expected the full vocabulary");
+            return sample(logits,temperature,rng);
+        }
+    }
+
     /** Single-owner KV sequence. Concurrent method calls on the resident model serialize. */
     public final class Session implements AutoCloseable {
         private final PagedKvCache.Sequence sequence;
@@ -211,15 +227,14 @@ public final class LlamaModel implements AutoCloseable {
                 usable();
                 if (maxNewTokens<0 || maxNewTokens>(long)capacity-sequence.tokens()-prompt.length)
                     throw new IllegalArgumentException("Generation exceeds remaining context");
-                if (!Double.isFinite(temperature) || temperature<0) throw new IllegalArgumentException("Invalid temperature");
+                var sampler = new Sampler(temperature,seed);
                 int[] stops=extraStops.clone();
                 for(int token:stops) checkId(token);
                 Arrays.sort(stops);
-                var rng=new SplittableRandom(seed);
                 float[] logits=prefill(prompt);
                 int[] tokens=new int[maxNewTokens];
                 for (int i=0;i<tokens.length;i++) {
-                    int token=sample(logits,temperature,rng);
+                    int token=sampler.next(logits);
                     tokens[i]=token;
                     logits=decode(token);
                     if(isEndOfGeneration(token) || Arrays.binarySearch(stops,token)>=0) return Arrays.copyOf(tokens,i+1);

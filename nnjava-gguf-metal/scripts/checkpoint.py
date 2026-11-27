@@ -67,6 +67,8 @@ def main():
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--cycles',type=int,default=2)
     p.add_argument('--seconds',type=float,default=0)
+    p.add_argument('--generation-cycles',type=int,default=2)
+    p.add_argument('--generation-seconds',type=float,default=0)
     a=p.parse_args()
     os.fstat(int(os.environ['DYNAMISGPU_BENCHMARK_LOCK_FD']))
     cpfile=MODULE/'target/runtime-cp.txt'
@@ -78,7 +80,7 @@ def main():
     cp=os.pathsep.join([str(jars[0]),cpfile.read_text().strip()])
     subprocess.run(['javac','--release','25','-cp',cp,'-d',cls,MODULE/'examples/CheckpointRun.java'],check=True)
     command=['java','--enable-native-access=ALL-UNNAMED','-Xmx10g','-cp',str(cls)+os.pathsep+cp,'CheckpointRun',
-                    str(a.model.resolve()),str(a.tokens.resolve()),str(a.depth),str(a.cycles),str(a.seconds),a.precision,str(a.out)]
+                    str(a.model.resolve()),str(a.tokens.resolve()),str(a.depth),str(a.cycles),str(a.seconds),a.precision,str(a.out),str(a.generation_cycles),str(a.generation_seconds)]
     with a.model.open('rb') as f:
         from hashlib import file_digest
         modelhash=file_digest(f,'sha256').hexdigest()
@@ -106,6 +108,25 @@ def main():
     count=sum(int(r['tokens']) for r in tr)
     ns=sum(int(r['wall_ns']) for r in tr)
     summary=dict(cycles=len(tr),tokens=count,mean_ms=ns/(count*1e6),tok_s=count*1e9/ns)
+    with (a.out/'generation-trajectories.csv').open() as f: gen=list(csv.DictReader(f))
+    with (a.out/'generation-steps.csv').open() as f: generated_steps=list(csv.DictReader(f))
+    cursor=0
+    for index,g in enumerate(gen,1):
+        n=int(g['tokens']); ns_g=int(g['wall_ns'])
+        group=generated_steps[cursor:cursor+n]; cursor+=n
+        if not (1<=n<=128 and int(g['start_depth'])==a.depth and int(g['cycle'])==index
+                and len(group)==n and all(int(x['position'])==a.depth+j and int(x['cycle'])==index for j,x in enumerate(group))
+                and sum(int(x['complete_step_ns']) for x in group)<=ns_g):
+            raise ValueError('Invalid sampled trajectory')
+        if (g['ended_eog']=='true')!=(int(group[-1]['token_id']) in (128001,128008,128009)):
+            raise ValueError('Incorrect end-of-generation count')
+        if n<128 and g['ended_eog']!='true': raise ValueError('Early sampled termination')
+    if len(gen)<a.generation_cycles or cursor!=len(generated_steps): raise ValueError('Generation measurement incomplete')
+    generated_ns=sum(int(g['wall_ns']) for g in gen)
+    summary['generation']=dict(cycles=len(gen),tokens=cursor,eog_stops=sum(g['ended_eog']=='true' for g in gen),
+                               tok_s=cursor*1e9/generated_ns,mean_complete_step_ms=generated_ns/(cursor*1e6),
+                               mean_first_select_ms=sum(int(g['first_select_ns']) for g in gen)/(len(gen)*1e6),
+                               mean_first_complete_ms=sum(int(g['first_complete_step_ns']) for g in gen)/(len(gen)*1e6))
     (a.out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(summary)
 

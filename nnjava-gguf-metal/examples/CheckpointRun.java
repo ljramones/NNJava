@@ -10,7 +10,7 @@ public final class CheckpointRun {
     private static void require(boolean ok,String message) { if (!ok) throw new IllegalStateException(message); }
 
     public static void main(String[] args) throws Exception {
-        if (args.length!=7) throw new IllegalArgumentException("GGUF tokens.csv depth cycles minimum-seconds packed|direct output");
+        if (args.length!=9) throw new IllegalArgumentException("GGUF tokens.csv depth cycles minimum-seconds packed|direct output generation-cycles generation-seconds");
         Path file=Path.of(args[0]);
         var csv=Files.readAllLines(Path.of(args[1]));
         require(csv.getFirst().equals("position,input_token"),"Invalid token inventory");
@@ -99,6 +99,8 @@ public final class CheckpointRun {
                     for(int i=0;i<128;i++) steps.write(c+","+(depth+i)+","+ts[i]+"\n");
                     timings.flush();steps.flush();
                 } while(c<cycles || (System.nanoTime()-began)*1e-9<duration);
+                measureGeneration(seq,last,depth,Integer.parseInt(args[7]),Double.parseDouble(args[8]),out);
+
             }
             try (var seq=model.session()) {
                 var tokenizer=model.tokenizer();
@@ -124,6 +126,48 @@ public final class CheckpointRun {
             }
         }
         Files.writeString(out.resolve("completed"),"ok\n");
+    }
+
+    private static void measureGeneration(LlamaModel.Session session, float[] last, int depth, int minCycles,
+                                          double minSeconds, Path out) throws Exception {
+        if (minCycles<1 || !Double.isFinite(minSeconds) || minSeconds<0) throw new IllegalArgumentException("Generation interval");
+        try(var summary=Files.newBufferedWriter(out.resolve("generation-trajectories.csv"));
+            var detail=Files.newBufferedWriter(out.resolve("generation-steps.csv"))) {
+            summary.write("cycle,seed,temperature,start_depth,tokens,ended_eog,wall_ns,first_select_ns,first_complete_step_ns\n");
+            detail.write("cycle,position,token_id,select_ns,complete_step_ns\n");
+            int cycle=0;
+            long interval=System.nanoTime();
+            do {
+                session.truncate(depth);
+                float[] logits=last;
+                long seed=17000L+cycle;
+                var sampler=new LlamaModel.Sampler(.7,seed);
+                int[] chosen=new int[128];
+                long[] select=new long[128], step=new long[128];
+                int count=0;
+                long start=System.nanoTime();
+                boolean ended;
+                do {
+                    long t=System.nanoTime();
+                    int token=sampler.next(logits);
+                    select[count]=System.nanoTime()-t;
+                    chosen[count]=token;
+                    logits=session.decode(token);
+                    require(logits.length==128256 && Float.isFinite(logits[0]),"Generation logits");
+                    step[count]=System.nanoTime()-t;
+                    ended=LlamaModel.isEndOfGeneration(token);
+                    count++;
+                } while(count<128 && !ended);
+                long elapsed=System.nanoTime()-start;
+                cycle++;
+                require(session.position()==depth+count,"Generation position");
+                summary.write(cycle+","+seed+",0.7,"+depth+","+count+","+ended+","+elapsed+","+select[0]+","+step[0]+"\n");
+                for(int j=0;j<count;j++)
+                    detail.write(cycle+","+(depth+j)+","+chosen[j]+","+select[j]+","+step[j]+"\n");
+                summary.flush();
+                detail.flush();
+            } while(cycle<minCycles || (System.nanoTime()-interval)*1e-9<minSeconds);
+        }
     }
 
     private static void raceSessionOwnership(LlamaModel model) throws Exception {
