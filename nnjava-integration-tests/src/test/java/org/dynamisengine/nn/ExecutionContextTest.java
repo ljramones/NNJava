@@ -1,8 +1,5 @@
 package org.dynamisengine.nn;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.concurrent.atomic.AtomicReference;
 import org.dynamisengine.nn.backend.Buffer;
 import org.dynamisengine.nn.backend.Operation;
 import org.dynamisengine.nn.ops.Ops;
@@ -11,6 +8,10 @@ import org.dynamisengine.nn.tensor.Shape;
 import org.dynamisengine.nn.tensor.Tensor;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.*;
+
 class ExecutionContextTest {
     @Test
     void pendingCommandsRetainClosedInputsAndSnapshotHostUploads() {
@@ -18,7 +19,7 @@ class ExecutionContextTest {
         try (var context = ExecutionContext.create(backend)) {
             float[] source = {1, 2};
             Tensor a = context.tensor(source, Shape.of(2));
-            Tensor b = context.tensor(new float[] {3, 4}, Shape.of(2));
+            Tensor b = context.tensor(new float[]{3, 4}, Shape.of(2));
             source[0] = 100;
             Tensor result = Ops.add(a, b);
             a.close();
@@ -26,7 +27,7 @@ class ExecutionContextTest {
             assertEquals(3, context.liveAllocations());
             assertTrue(backend.allocations.stream().noneMatch(Buffer::isClosed));
             assertEquals(Operation.ADD, backend.calls.getFirst().operation());
-            assertArrayEquals(new float[] {4, 6}, result.toFloatArray());
+            assertArrayEquals(new float[]{4, 6}, result.toFloatArray());
             assertEquals(1, context.liveAllocations());
             result.close();
             assertEquals(0, context.liveAllocations());
@@ -38,8 +39,8 @@ class ExecutionContextTest {
     @Test
     void backwardWorksWithDeferredExecutionAndClosedIntermediateHandles() {
         try (var context = ExecutionContext.create(new DeferredBackend());
-                var x = context.tensor(new float[] {2, 3}, Shape.of(2), true);
-                var survivor = x.retain(); var tape = context.gradientTape()) {
+             var x = context.tensor(new float[]{2, 3}, Shape.of(2), true);
+             var survivor = x.retain(); var tape = context.gradientTape()) {
             Tensor squared = Ops.square(x);
             try (Tensor total = Ops.sum(squared)) {
                 squared.close();
@@ -47,7 +48,7 @@ class ExecutionContextTest {
                 tape.backward(total);
             }
             try (Tensor gradient = survivor.gradient()) {
-                assertArrayEquals(new float[] {4, 6}, gradient.toFloatArray());
+                assertArrayEquals(new float[]{4, 6}, gradient.toFloatArray());
             }
             survivor.clearGradient();
             assertEquals(1, context.liveAllocations());
@@ -58,7 +59,7 @@ class ExecutionContextTest {
     void deferredFailurePoisonsContextButStillReleasesAllWorkAndAllocations() {
         var backend = new DeferredBackend();
         var context = ExecutionContext.create(backend);
-        Tensor x = context.tensor(new float[] {2}, Shape.of());
+        Tensor x = context.tensor(new float[]{2}, Shape.of());
         backend.failNextKernel = true;
         Tensor result = Ops.square(x);
         x.close();
@@ -76,7 +77,7 @@ class ExecutionContextTest {
     void closingContextDrainsQueuedWorkEvenAfterAllCallerHandlesClose() {
         var backend = new DeferredBackend();
         var context = ExecutionContext.create(backend);
-        Tensor x = context.tensor(new float[] {2}, Shape.of());
+        Tensor x = context.tensor(new float[]{2}, Shape.of());
         Tensor result = Ops.square(x);
         x.close();
         result.close();
@@ -89,11 +90,11 @@ class ExecutionContextTest {
     @Test
     void allHostTypesSupportDeferredTransfers() {
         try (var context = ExecutionContext.create(new DeferredBackend());
-                var integers = context.tensor(new int[] {1, 2}, Shape.of(2));
-                var booleans = context.tensor(new boolean[] {true, false}, Shape.of(2));
-                var copied = Ops.copy(booleans)) {
-            assertArrayEquals(new int[] {1, 2}, integers.toIntArray());
-            assertArrayEquals(new boolean[] {true, false}, copied.toBooleanArray());
+             var integers = context.tensor(new int[]{1, 2}, Shape.of(2));
+             var booleans = context.tensor(new boolean[]{true, false}, Shape.of(2));
+             var copied = Ops.copy(booleans)) {
+            assertArrayEquals(new int[]{1, 2}, integers.toIntArray());
+            assertArrayEquals(new boolean[]{true, false}, copied.toBooleanArray());
         }
     }
 

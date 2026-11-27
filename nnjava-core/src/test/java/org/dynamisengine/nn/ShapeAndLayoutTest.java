@@ -1,10 +1,10 @@
 package org.dynamisengine.nn;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import org.dynamisengine.nn.tensor.Shape;
 import org.dynamisengine.nn.tensor.TensorLayout;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class ShapeAndLayoutTest {
     @Test
@@ -27,9 +27,9 @@ class ShapeAndLayoutTest {
         assertEquals(0, Shape.of(Long.MAX_VALUE, 0, Long.MAX_VALUE).elements());
         assertEquals(0, TensorLayout.contiguous(Shape.of(0, Long.MAX_VALUE, Long.MAX_VALUE)).requiredElements());
         assertThrows(IllegalArgumentException.class,
-                () -> new TensorLayout(Shape.of(2), new long[] {Long.MAX_VALUE}, 1));
+                () -> new TensorLayout(Shape.of(2), new long[]{Long.MAX_VALUE}, 1));
         assertThrows(IllegalArgumentException.class,
-                () -> new TensorLayout(Shape.of(2), new long[] {-1}, 0));
+                () -> new TensorLayout(Shape.of(2), new long[]{-1}, 0));
     }
 
     @Test

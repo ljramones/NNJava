@@ -6,13 +6,13 @@ SIMD-classifier configurations were run separately.
 
 ## Correctness and artifact checks
 
-| Check | Command | Observed result |
-| --- | --- | --- |
-| Clean CPU build/install | `mvn -o clean install` | 54 tests passed; no failures, errors, or skips. Library JAR and POM installed locally. |
-| SIMD execution | `mvn -o -q -Psimd test` | The same 54 tests passed with the incubator Vector API enabled. |
+| Check                      | Command                                                          | Observed result                                                                               |
+|----------------------------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| Clean CPU build/install    | `mvn -o clean install`                                           | 54 tests passed; no failures, errors, or skips. Library JAR and POM installed locally.        |
+| SIMD execution             | `mvn -o -q -Psimd test`                                          | The same 54 tests passed with the incubator Vector API enabled.                               |
 | Independent Maven consumer | `mvn -o -q -f examples/consumer/pom.xml clean compile exec:java` | Consumer transformer cross-entropy decreased from 1.591084 to 0.000009; token accuracy 1.000. |
-| Benchmark packaging | `mvn -o -q -Pbenchmarks -DskipTests package` | JMH executable JAR built successfully. |
-| Public API documentation | `mvn -o -q javadoc:jar` | Javadoc artifact generated successfully. |
+| Benchmark packaging        | `mvn -o -q -Pbenchmarks -DskipTests package`                     | JMH executable JAR built successfully.                                                        |
+| Public API documentation   | `mvn -o -q javadoc:jar`                                          | Javadoc artifact generated successfully.                                                      |
 
 Offline mode used already-installed dependencies and does not change test
 semantics. CI is configured to build pinned parent/Vectrix source dependencies,
@@ -45,10 +45,10 @@ one-second measured iterations. This baseline uses plain Vectrix 3.0.0, with no
 additional JVM arguments. [Raw JMH output](evidence/cpu-jmh.json) preserves samples,
 confidence intervals, allocation measurements, JVM metadata, and parameters.
 
-| Workload | Mean time | JMH error at 99.9 percent | Allocated bytes per operation |
-| --- | ---: | ---: | ---: |
-| Matrix multiplication and host readback | 1.126 microseconds | 0.089 microseconds | 2,896 |
-| Linear forward, MSE backward, finite checks, and SGD update | 21.778 microseconds | 1.453 microseconds | 68,393 |
+| Workload                                                    |           Mean time | JMH error at 99.9 percent | Allocated bytes per operation |
+|-------------------------------------------------------------|--------------------:|--------------------------:|------------------------------:|
+| Matrix multiplication and host readback                     |  1.126 microseconds |        0.089 microseconds |                         2,896 |
+| Linear forward, MSE backward, finite checks, and SGD update | 21.778 microseconds |        1.453 microseconds |                        68,393 |
 
 Inputs are `[4,16]`; matrix weights are `[16,16]`. Matrix measurement includes
 output ownership, allocation, and a host copy. The training measurement clears

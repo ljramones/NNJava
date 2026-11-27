@@ -13,13 +13,13 @@ status are recorded in the [roadmap](roadmap.md).
 
 ## Repository responsibilities
 
-| Repository | Owns |
-| --- | --- |
-| Vectrix (`vectrix-core`, `vectrix-ml`) | CPU numerical kernels: the reference semantics, with fixed-order, cross-platform deterministic results. Also the CPU side of quantization (`BlockQuant`, `Formats`). |
-| vectrix-gpu (Vectrix repository) | Exact GPU twins of Vectrix kernels, bit-identical to the CPU (FP32). |
-| DynamisGPU | The GPU runtime (devices, pooled memory, arenas, queues, synchronization, recording/replay, pipelines, profiling) on Metal and Vulkan, and `dynamis-gpu-primitives`: throughput kernels (FP32/FP16/BF16/quantized) with published accuracy contracts, paged KV cache, GPU sampling. |
-| NNJava | Tensor/model semantics, differentiation, modules/builders, generation mechanisms, optional tokenizers, training/adaptation, evaluation, weight formats, persistence, and numerical adapters. |
-| An application or LLM repository | Architecture/weight choices, tokenizer configuration and vocabulary, datasets, prompt formats, training recipes, explicit model-family mappings, generation settings, and application interfaces. |
+| Repository                             | Owns                                                                                                                                                                                                                                                                                |
+|----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Vectrix (`vectrix-core`, `vectrix-ml`) | CPU numerical kernels: the reference semantics, with fixed-order, cross-platform deterministic results. Also the CPU side of quantization (`BlockQuant`, `Formats`).                                                                                                                |
+| vectrix-gpu (Vectrix repository)       | Exact GPU twins of Vectrix kernels, bit-identical to the CPU (FP32).                                                                                                                                                                                                                |
+| DynamisGPU                             | The GPU runtime (devices, pooled memory, arenas, queues, synchronization, recording/replay, pipelines, profiling) on Metal and Vulkan, and `dynamis-gpu-primitives`: throughput kernels (FP32/FP16/BF16/quantized) with published accuracy contracts, paged KV cache, GPU sampling. |
+| NNJava                                 | Tensor/model semantics, differentiation, modules/builders, generation mechanisms, optional tokenizers, training/adaptation, evaluation, weight formats, persistence, and numerical adapters.                                                                                        |
+| An application or LLM repository       | Architecture/weight choices, tokenizer configuration and vocabulary, datasets, prompt formats, training recipes, explicit model-family mappings, generation settings, and application interfaces.                                                                                   |
 
 Reusable attention, positional encodings, masks, caches, and generic NN/LM model
 builders belong in this framework. The application selects/customizes a model,
@@ -52,33 +52,33 @@ executable model state.
 
 Use a provisional package root of `org.dynamisengine.nn`, divided as follows:
 
-| Package | Contents |
-| --- | --- |
-| `tensor` and `ops` | Shapes, layouts, tensors, factories, and differentiable operations. |
-| `autograd` | Gradient recording, backward rules, and graph lifetime. |
-| `nn` | Parameters, modules, initialization, and common layers. |
-| `transformer` | Attention components, positional encodings, masks, and KV caches. |
+| Package                                 | Contents                                                                       |
+|-----------------------------------------|--------------------------------------------------------------------------------|
+| `tensor` and `ops`                      | Shapes, layouts, tensors, factories, and differentiable operations.            |
+| `autograd`                              | Gradient recording, backward rules, and graph lifetime.                        |
+| `nn`                                    | Parameters, modules, initialization, and common layers.                        |
+| `transformer`                           | Attention components, positional encodings, masks, and KV caches.              |
 | `generation` and `tokenizers` (planned) | Token-based decoding/session orchestration and optional text/token conversion. |
-| `training` and `data` | Optimizers, schedules, batching, evaluation, and training helpers. |
-| `io` | Named state, checkpoint metadata, and portable tensor persistence. |
-| `runtime` and `backend` | Execution contexts, capability discovery, and the backend SPI. |
-| `backend.vectrix` | CPU operation mappings, scratch management, and scheduling. |
+| `training` and `data`                   | Optimizers, schedules, batching, evaluation, and training helpers.             |
+| `io`                                    | Named state, checkpoint metadata, and portable tensor persistence.             |
+| `runtime` and `backend`                 | Execution contexts, capability discovery, and the backend SPI.                 |
+| `backend.vectrix`                       | CPU operation mappings, scratch management, and scheduling.                    |
 
 ## Public abstractions
 
-| Abstraction | Contract |
-| --- | --- |
-| `Tensor` | Typed values with a shape, strides, device, shared storage ownership, and optional gradient tracking. |
-| `Shape` and `TensorLayout` | Immutable metadata with checked size arithmetic and explicit element offsets. |
-| `Device` and `ExecutionContext` | Select an execution device and own its queue, allocation policy, worker resources, and random streams. |
-| `Ops` | Functional tensor operations with defined broadcasting, shape inference, numerical behavior, and backward rules. |
-| `Parameter` | A named trainable leaf tensor with stable identity; tied weights share that identity. |
-| `Module` | Registers parameters and child modules, exposes named state, and propagates training/evaluation mode. |
-| `UnaryModule` | The common single-input, single-output forward interface. Components such as attention use explicit input records for additional inputs. |
-| `GradientTape` | Records differentiable operations and runs first-order reverse-mode differentiation. |
-| `Optimizer` | Updates registered parameters and owns optimizer state and parameter-group settings. |
-| `Dataset` and `DataLoader` | Supply application-defined samples and batches with reproducible ordering. |
-| `StateDict` and `Checkpoint` | Persist named tensors, aliases, optimizer state, and training progress. |
+| Abstraction                     | Contract                                                                                                                                 |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| `Tensor`                        | Typed values with a shape, strides, device, shared storage ownership, and optional gradient tracking.                                    |
+| `Shape` and `TensorLayout`      | Immutable metadata with checked size arithmetic and explicit element offsets.                                                            |
+| `Device` and `ExecutionContext` | Select an execution device and own its queue, allocation policy, worker resources, and random streams.                                   |
+| `Ops`                           | Functional tensor operations with defined broadcasting, shape inference, numerical behavior, and backward rules.                         |
+| `Parameter`                     | A named trainable leaf tensor with stable identity; tied weights share that identity.                                                    |
+| `Module`                        | Registers parameters and child modules, exposes named state, and propagates training/evaluation mode.                                    |
+| `UnaryModule`                   | The common single-input, single-output forward interface. Components such as attention use explicit input records for additional inputs. |
+| `GradientTape`                  | Records differentiable operations and runs first-order reverse-mode differentiation.                                                     |
+| `Optimizer`                     | Updates registered parameters and owns optimizer state and parameter-group settings.                                                     |
+| `Dataset` and `DataLoader`      | Supply application-defined samples and batches with reproducible ordering.                                                               |
+| `StateDict` and `Checkpoint`    | Persist named tensors, aliases, optimizer state, and training progress.                                                                  |
 
 Expose an ordinary Java training loop first. An optional `Trainer` can manage
 callbacks, evaluation, and checkpoint cadence without making custom loops depend
@@ -151,6 +151,7 @@ without requiring an FP64 neural-network backend.
 
 The CPU adapter uses Vectrix's row-major array kernels, explicit scratch, and
 fixed-order reductions. A GPU context runs in one of two modes:
+
 - **Exact:** vectrix-gpu's twins; results equal the CPU bit for bit, apart from
   subnormals, which Apple GPUs flush.
 - **Throughput:** DynamisGPU's primitives. Comparisons use each kernel's published
@@ -179,6 +180,6 @@ kernels requested upstream.
 
 Native Metal and Vulkan platform checks, API/package migration, and stable release
 policy remain explicit release gates. Decide the JPMS module names before the
-module extraction (R1): Vectrix (`org.dynamisengine.vectrix`, `.ml`) and DynamisGPU
-(`org.dynamisengine.gpu.*`) are named modules, and the GPU adapter needs Metal's
+module extraction (R1): Vectrix (`org.dynamisengine.vectrix`, `.ml`) and DynamisGPU (`org.dynamisengine.gpu.*`) are
+named modules, and the GPU adapter needs Metal's
 native access granted by module name.

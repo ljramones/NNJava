@@ -18,7 +18,8 @@ mvn -f examples/consumer/pom.xml compile exec:java
 
 The numerical dependencies are `vectrix-core` and `vectrix-ml` 4.1.0. The root
 is a multi-module aggregator; the [migration guide](module-migration.md) lists
-capability artifacts, JPMS names, and experimental import changes. The `simd` profile selects Vectrix's SIMD classifier and enables the
+capability artifacts, JPMS names, and experimental import changes. The `simd` profile selects Vectrix's SIMD classifier
+and enables the
 incubator Vector API in test JVMs. For an application running inside Maven's JVM, start Maven with
 `MAVEN_OPTS=--add-modules=jdk.incubator.vector` when using the SIMD classifier.
 

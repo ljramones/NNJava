@@ -3,6 +3,7 @@
 This contract separates network semantics from numerical execution. The current
 CPU implementation uses Vectrix 4.1.0 (EXEC-01, implemented). On the
 GPU, NNJava's adapter composes three upstream pieces:
+
 - vectrix-gpu's exact twins;
 - DynamisGPU's throughput primitives;
 - DynamisGPU's runtime.
@@ -41,15 +42,15 @@ arrays.
 
 Keep this SPI separate from the user-facing tensor API:
 
-| Interface | Responsibility |
-| --- | --- |
-| `BackendProvider` | Discover available devices and create backend contexts without initializing unused native backends. |
-| `BackendCapabilities` | Report supported operation, data type, layout, size, and numerical-mode combinations. |
-| `Buffer` | Own opaque device storage with byte size, alignment, device identity, and release semantics. On the GPU, a `GpuBuffer` from DynamisGPU (pooled by the device), or a `GpuArena` range for per-step temporaries. |
-| `KernelRegistry` | Resolve typed operation requests to direct kernels or registered same-device compositions. |
-| `KernelCall` | Describe operation identity, input/output layouts, attributes, and overwrite/accumulate output semantics. |
-| `ExecutionContext` | Own an ordered execution stream, scratch resources, allocation policy, and error state. |
-| `Completion` | Report completion or failure and support explicit waiting. On the GPU, wraps `GpuSubmission` (`await(Duration)`) and `GpuFence`. |
+| Interface             | Responsibility                                                                                                                                                                                                 |
+|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `BackendProvider`     | Discover available devices and create backend contexts without initializing unused native backends.                                                                                                            |
+| `BackendCapabilities` | Report supported operation, data type, layout, size, and numerical-mode combinations.                                                                                                                          |
+| `Buffer`              | Own opaque device storage with byte size, alignment, device identity, and release semantics. On the GPU, a `GpuBuffer` from DynamisGPU (pooled by the device), or a `GpuArena` range for per-step temporaries. |
+| `KernelRegistry`      | Resolve typed operation requests to direct kernels or registered same-device compositions.                                                                                                                     |
+| `KernelCall`          | Describe operation identity, input/output layouts, attributes, and overwrite/accumulate output semantics.                                                                                                      |
+| `ExecutionContext`    | Own an ordered execution stream, scratch resources, allocation policy, and error state.                                                                                                                        |
+| `Completion`          | Report completion or failure and support explicit waiting. On the GPU, wraps `GpuSubmission` (`await(Duration)`) and `GpuFence`.                                                                               |
 
 The framework infers shapes and validates structural arguments before execution.
 The adapter receives validated layouts and preallocated outputs. Kernel support
@@ -69,18 +70,18 @@ subset. A GPU training backend must implement the corresponding operations or
 same-device compositions for the features it advertises. The per-operation GPU
 mapping is in [numerical coverage](numerical-coverage.md).
 
-| Group | Required operations | Vectrix integration |
-| --- | --- | --- |
-| Storage and movement | Allocate, fill, copy, cast among supported types, contiguous copy, host upload/download. | Adapter-managed arrays, copying, and layout traversal. |
-| Views and indexing | Reshape, transpose/permute, slice, broadcast, concatenate/split, gather, scatter-add. | Framework layout rules and adapter indexing kernels. |
-| Elementwise math | Add, subtract, multiply, divide, negate, square, square root, exponential, logarithm, and scalar forms. | ReproducibleMath where applicable; adapter loops or reusable Vectrix extensions. |
-| Conditions and masks | Equality/order comparisons, boolean and/or/not, and conditional selection with broadcasting. | Adapter kernels; selection gradients flow only through the selected value branch. |
-| Reductions | Sum, mean, maximum, argmax, and broadcast-gradient reduction over selected axes. | Blasf reductions plus adapter axis traversal and explicit empty-input policies. |
-| Linear algebra | Matrix multiplication with transpose options and batched matrix multiplication with broadcast batch dimensions. | Gemmf/GEMV per matrix; adapter batch iteration and per-worker scratch. |
-| Neural functions | Activations, dropout, softmax/log-softmax, LayerNorm, RMSNorm, MSE, and cross-entropy. | Activations, Softmax, Norms, Loss; composed MSE and batching. |
-| Embeddings and positions | Integer gather, repeated-index gradient accumulation, RoPE and its backward transform. | Adapter gather/scatter; Rope with explicit pairing and position conventions. |
-| Training state | Zero/accumulate gradients, finite-value check, gradient norm/clipping, SGD and AdamW updates. | Blasf and Optim plus adapter state management. |
-| Attention | Scaled dot-product attention, masks, grouped-query composition, and backward operations. | Attention per query/head with framework batch and sequence orchestration. |
+| Group                    | Required operations                                                                                             | Vectrix integration                                                               |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| Storage and movement     | Allocate, fill, copy, cast among supported types, contiguous copy, host upload/download.                        | Adapter-managed arrays, copying, and layout traversal.                            |
+| Views and indexing       | Reshape, transpose/permute, slice, broadcast, concatenate/split, gather, scatter-add.                           | Framework layout rules and adapter indexing kernels.                              |
+| Elementwise math         | Add, subtract, multiply, divide, negate, square, square root, exponential, logarithm, and scalar forms.         | ReproducibleMath where applicable; adapter loops or reusable Vectrix extensions.  |
+| Conditions and masks     | Equality/order comparisons, boolean and/or/not, and conditional selection with broadcasting.                    | Adapter kernels; selection gradients flow only through the selected value branch. |
+| Reductions               | Sum, mean, maximum, argmax, and broadcast-gradient reduction over selected axes.                                | Blasf reductions plus adapter axis traversal and explicit empty-input policies.   |
+| Linear algebra           | Matrix multiplication with transpose options and batched matrix multiplication with broadcast batch dimensions. | Gemmf/GEMV per matrix; adapter batch iteration and per-worker scratch.            |
+| Neural functions         | Activations, dropout, softmax/log-softmax, LayerNorm, RMSNorm, MSE, and cross-entropy.                          | Activations, Softmax, Norms, Loss; composed MSE and batching.                     |
+| Embeddings and positions | Integer gather, repeated-index gradient accumulation, RoPE and its backward transform.                          | Adapter gather/scatter; Rope with explicit pairing and position conventions.      |
+| Training state           | Zero/accumulate gradients, finite-value check, gradient norm/clipping, SGD and AdamW updates.                   | Blasf and Optim plus adapter state management.                                    |
+| Attention                | Scaled dot-product attention, masks, grouped-query composition, and backward operations.                        | Attention per query/head with framework batch and sequence orchestration.         |
 
 Storage movement, shape-only transformations, random-number generation, indexing,
 and elementary tensor operations require some adapter logic. Existing Vectrix
@@ -114,6 +115,7 @@ propagates NaN, and argmax selects the first NaN when one is present. Keep these
 rules consistent across CPU reductions and GPU reduction trees.
 
 The upstream kernels do not all share these rules yet:
+
 - **Fully masked rows:** Vectrix's `Softmax` returns NaN for a row of all -inf, so
   the CPU adapter applies the zero rule itself. The throughput `Softmax` gives
   zeros only under its built-in causal mask.

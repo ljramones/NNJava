@@ -1,10 +1,13 @@
 package org.dynamisengine.nn.backend.gpu;
 
 import java.time.Duration;
+
 import org.dynamisengine.gpu.api.compute.GpuSubmission;
 import org.dynamisengine.nn.backend.Completion;
 
-/** A bounded runtime timeout is pending work, never permission to release storage. */
+/**
+ * A bounded runtime timeout is pending work, never permission to release storage.
+ */
 final class GpuCompletion implements Completion {
     private final GpuSubmission submission;
     private final Runnable publish;
@@ -16,11 +19,13 @@ final class GpuCompletion implements Completion {
         this.publish = publish;
     }
 
-    @Override public boolean isDone() {
+    @Override
+    public boolean isDone() {
         return finished || submission.status() != GpuSubmission.Status.PENDING;
     }
 
-    @Override public void await() {
+    @Override
+    public void await() {
         if (!finished) {
             try {
                 while (!submission.await(Duration.ofSeconds(30))) {
@@ -30,13 +35,21 @@ final class GpuCompletion implements Completion {
             } catch (RuntimeException error) {
                 failure = error;
             } finally {
-                try { submission.close(); }
-                catch (RuntimeException error) {
-                    if (failure == null) { failure = error; }
-                    else if (failure != error) { failure.addSuppressed(error); }
-                } finally { finished = true; }
+                try {
+                    submission.close();
+                } catch (RuntimeException error) {
+                    if (failure == null) {
+                        failure = error;
+                    } else if (failure != error) {
+                        failure.addSuppressed(error);
+                    }
+                } finally {
+                    finished = true;
+                }
             }
         }
-        if (failure != null) { throw failure; }
+        if (failure != null) {
+            throw failure;
+        }
     }
 }

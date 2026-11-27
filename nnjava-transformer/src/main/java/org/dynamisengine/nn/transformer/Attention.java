@@ -2,7 +2,9 @@ package org.dynamisengine.nn.transformer;
 
 import org.dynamisengine.nn.nn.Dropout;
 import org.dynamisengine.nn.ops.Ops;
-import org.dynamisengine.nn.tensor.*;
+import org.dynamisengine.nn.tensor.DType;
+import org.dynamisengine.nn.tensor.Shape;
+import org.dynamisengine.nn.tensor.Tensor;
 
 /**
  * Differentiable scaled dot-product and grouped-query attention over [batch,heads,time,features].

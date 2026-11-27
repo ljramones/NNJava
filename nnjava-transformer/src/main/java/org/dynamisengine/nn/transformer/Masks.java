@@ -1,7 +1,9 @@
 package org.dynamisengine.nn.transformer;
 
 import org.dynamisengine.nn.runtime.ExecutionContext;
-import org.dynamisengine.nn.tensor.*;
+import org.dynamisengine.nn.tensor.DType;
+import org.dynamisengine.nn.tensor.Shape;
+import org.dynamisengine.nn.tensor.Tensor;
 
 /**
  * Boolean attention masks use true for allowed positions.

@@ -10,15 +10,15 @@ currently implemented methods.
 
 ## Builder layers
 
-| Builder family | Creates | Module |
-| --- | --- | --- |
-| Layer builders | Validated Linear, Embedding, normalization, dropout, and other layer specifications. | nn |
-| Network builders | Sequential and, later, branched networks with named components and inferred shapes. | nn |
-| Transformer builders | Attention, feed-forward, block, encoder/decoder, and generic language-model definitions. | transformer |
-| Generation builders | Sampling/stopping definitions and inference sessions with explicit cache ownership. | generation |
-| Tokenizer and loading builders | Optional tokenizer providers, format readers, and explicit weight-name/layout mappings. | tokenizers and io; provider-specific weight materialization in adapters |
-| Training builders | Optimizer/group, schedule, data-loader, evaluation, and Trainer configurations. | training and data |
-| Runtime builders | Execution contexts with an explicit provider, precision policy, and random seed. | core and backend providers |
+| Builder family                 | Creates                                                                                  | Module                                                                  |
+|--------------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| Layer builders                 | Validated Linear, Embedding, normalization, dropout, and other layer specifications.     | nn                                                                      |
+| Network builders               | Sequential and, later, branched networks with named components and inferred shapes.      | nn                                                                      |
+| Transformer builders           | Attention, feed-forward, block, encoder/decoder, and generic language-model definitions. | transformer                                                             |
+| Generation builders            | Sampling/stopping definitions and inference sessions with explicit cache ownership.      | generation                                                              |
+| Tokenizer and loading builders | Optional tokenizer providers, format readers, and explicit weight-name/layout mappings.  | tokenizers and io; provider-specific weight materialization in adapters |
+| Training builders              | Optimizer/group, schedule, data-loader, evaluation, and Trainer configurations.          | training and data                                                       |
+| Runtime builders               | Execution contexts with an explicit provider, precision policy, and random seed.         | core and backend providers                                              |
 
 Put builders beside the functionality they configure. A convenience facade may
 re-export common entry points; it should not become a separate implementation.
@@ -27,17 +27,18 @@ re-export common entry points; it should not become a separate implementation.
 
 ```java
 var definition = NeuralNetwork.builder()
-    .name("digit-classifier")
-    .inputFeatures(784)
-    .seed(42)
-    .dense("hidden", 256, ActivationKind.RELU)
-    .dropout("regularization", 0.1f)
-    .dense("logits", 10)
-    .define();
+        .name("digit-classifier")
+        .inputFeatures(784)
+        .seed(42)
+        .dense("hidden", 256, ActivationKind.RELU)
+        .dropout("regularization", 0.1f)
+        .dense("logits", 10)
+        .define();
 
-try (var model = definition.build(context)) {
-    // Forward, train, save, or inspect through the normal module API.
-}
+try(
+var model = definition.build(context)){
+        // Forward, train, save, or inspect through the normal module API.
+        }
 ```
 
 Also support a direct `.build(context)` terminal operation for short examples.

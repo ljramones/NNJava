@@ -53,11 +53,11 @@ choose the supported OS/architecture matrix explicitly when updating its build.
 
 ## Responsibility boundary
 
-| DynamisGPU owns | NeuralNetworks owns |
-| --- | --- |
-| Devices, memory, transfers, queues, synchronization, executable pipelines, bindings, dispatch, and native errors. | Tensor shapes, strides, broadcasting, differentiation, modules, optimizers, and training state. |
-| Loading Metal libraries or Vulkan shader binaries and reporting hardware capabilities. | ML kernel sources/artifacts, specialization choices, operation composition, and numerical validation against Vectrix. |
-| Generic allocation pools, resource retirement, and GPU timing. | Tensor memory planning, saved activations, KV-cache organization, and model-level profiling. |
+| DynamisGPU owns                                                                                                   | NeuralNetworks owns                                                                                                   |
+|-------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| Devices, memory, transfers, queues, synchronization, executable pipelines, bindings, dispatch, and native errors. | Tensor shapes, strides, broadcasting, differentiation, modules, optimizers, and training state.                       |
+| Loading Metal libraries or Vulkan shader binaries and reporting hardware capabilities.                            | ML kernel sources/artifacts, specialization choices, operation composition, and numerical validation against Vectrix. |
+| Generic allocation pools, resource retirement, and GPU timing.                                                    | Tensor memory planning, saved activations, KV-cache organization, and model-level profiling.                          |
 
 This keeps the GPU runtime usable by other domains. Backend-specific ML kernels
 can live inside the framework's GPU adapter. A future reusable GPU numerical
@@ -78,16 +78,16 @@ when that separation has a clear migration path.
 
 ## Required generic APIs
 
-| Proposed type | Required behavior |
-| --- | --- |
-| `GpuProvider` and `GpuAdapter` | Enumerate usable hardware, report backend identity and limits, and open a headless device. |
-| `GpuDevice` | Own allocations, queues, pipelines, and capability queries; validate device ownership of resources. |
-| `GpuQueue` | Submit ordered work and completion dependencies without requiring a render frame. |
-| `GpuBuffer` and `BufferSlice` | Support byte sizes, alignment, combinable usages, placement intent, explicit mapping, and retained subranges. |
-| `GpuCommandEncoder` | Record buffer copies, fills, compute bindings, dispatches, and resource access declarations. |
+| Proposed type                            | Required behavior                                                                                                              |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `GpuProvider` and `GpuAdapter`           | Enumerate usable hardware, report backend identity and limits, and open a headless device.                                     |
+| `GpuDevice`                              | Own allocations, queues, pipelines, and capability queries; validate device ownership of resources.                            |
+| `GpuQueue`                               | Submit ordered work and completion dependencies without requiring a render frame.                                              |
+| `GpuBuffer` and `BufferSlice`            | Support byte sizes, alignment, combinable usages, placement intent, explicit mapping, and retained subranges.                  |
+| `GpuCommandEncoder`                      | Record buffer copies, fills, compute bindings, dispatches, and resource access declarations.                                   |
 | `GpuComputePipeline` and `BindingLayout` | Load a compute entry point with explicit buffer bindings, parameter layout, specialization values, and workgroup requirements. |
-| `GpuSubmission` | Report completion/failure, expose a bounded wait or polling API, and retain resources until completion. |
-| `GpuCapabilities` | Report limits, shader features, supported scalar/storage types, timestamp support, and optional optimized capabilities. |
+| `GpuSubmission`                          | Report completion/failure, expose a bounded wait or polling API, and retain resources until completion.                        |
+| `GpuCapabilities`                        | Report limits, shader features, supported scalar/storage types, timestamp support, and optional optimized capabilities.        |
 
 Use opaque typed resources in common APIs. Put native-handle interop in an
 explicit backend extension. Identify backends separately: native Metal and
@@ -204,13 +204,13 @@ transition costs and avoids synchronizing after each primitive.
 
 ## Migration and acceptance stages
 
-| Stage | Change | Acceptance evidence |
-| --- | --- | --- |
-| G0 | Introduce neutral devices, buffers, queues, bindings, completion, and capability contracts. | Mock contract tests cover ordering, validation, ownership, and deferred release; existing graphics tests continue to pass. |
-| G1 | Implement native Metal discovery, allocation, transfers, pipeline loading, and dispatch. | A headless vector-add workload executes on Metal and returns verified results; tests exercise completion and errors. |
-| G2 | Adapt Vulkan to the same compute contract. | The same copy/fill/vector-add conformance suite passes on supported Vulkan hardware, without presentation setup. |
-| G3 | Implement framework GPU primitives through the runtime. | GEMM, backward operations, and one optimizer step agree numerically with CPU references; data stays on-device through the step. |
-| G4 | Tune allocation, dispatch batching, GEMM, and selected fused kernels. | Benchmarks separate native-call overhead, transfers, execution, peak allocation, and end-to-end throughput. |
+| Stage | Change                                                                                      | Acceptance evidence                                                                                                             |
+|-------|---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| G0    | Introduce neutral devices, buffers, queues, bindings, completion, and capability contracts. | Mock contract tests cover ordering, validation, ownership, and deferred release; existing graphics tests continue to pass.      |
+| G1    | Implement native Metal discovery, allocation, transfers, pipeline loading, and dispatch.    | A headless vector-add workload executes on Metal and returns verified results; tests exercise completion and errors.            |
+| G2    | Adapt Vulkan to the same compute contract.                                                  | The same copy/fill/vector-add conformance suite passes on supported Vulkan hardware, without presentation setup.                |
+| G3    | Implement framework GPU primitives through the runtime.                                     | GEMM, backward operations, and one optimizer step agree numerically with CPU references; data stays on-device through the step. |
+| G4    | Tune allocation, dispatch batching, GEMM, and selected fused kernels.                       | Benchmarks separate native-call overhead, transfers, execution, peak allocation, and end-to-end throughput.                     |
 
 Run actual Metal and Vulkan hardware tests in addition to mocks. Include repeated
 allocation/release, close-before-completion, invalid bindings, non-divisible

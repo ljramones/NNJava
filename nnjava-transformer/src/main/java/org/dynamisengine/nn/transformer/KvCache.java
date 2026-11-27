@@ -2,7 +2,10 @@ package org.dynamisengine.nn.transformer;
 
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.runtime.ExecutionContext;
-import org.dynamisengine.nn.tensor.*;
+import org.dynamisengine.nn.tensor.DType;
+import org.dynamisengine.nn.tensor.Shape;
+import org.dynamisengine.nn.tensor.Tensor;
+import org.dynamisengine.nn.tensor.TensorAccess;
 
 /**
  * Fixed-capacity session state. Returned read-only views remain valid until the next cache mutation.

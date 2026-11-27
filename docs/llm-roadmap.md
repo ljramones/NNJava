@@ -137,14 +137,14 @@ These are R5 submilestones. They can progress alongside classical NN work and
 share R1/R2 foundations; training milestones reuse R3. GPU milestones also need
 R6 provider integration and the relevant numerical coverage.
 
-| Milestone | Scope | Observable completion |
-| --- | --- | --- |
-| L1 Configurable models | LM-01, LM-02, initial LM-06 and LM-13 | Public builders construct a multi-layer decoder; definition round-trip, gradients, masks, tied weights, and cached/full logits pass. |
-| L2 Real-model inference | LM-03, LM-07, initial LM-08/LM-09/LM-17, IO-04/IO-05, EXEC-05 | A selected pretrained decoder runs through an external consumer with distinct layer weights, output head, tokenizer, sampling, and growing KV cache; reference logits and full-run measurements are recorded. |
-| L3 Pretraining | LM-10, initial LM-14, LM-13 | A small decoder learns a token corpus, reports held-out perplexity, accumulates variable token counts correctly, and resumes reproducibly; GPU training has separate measured evidence. |
-| L4 Fine-tuning | LM-11, LM-05 | Full and LoRA fine-tuning honor loss/freeze masks; saved adapters reload and reproduce logits, with merge parity where supported. |
-| L5 Scale and precision | Remaining LM-06/LM-08/LM-14, LM-12, EXEC-03 | Long-context, batching, recomputation, and precision policies pass targeted memory/correctness checks; QLoRA has independent backward validation. |
-| L6 Architecture and objective breadth | LM-04, LM-15, LM-16, LM-18 | Encoder/decoder, MoE, advanced decoding, and preference objectives ship independently with their own acceptance tasks. |
+| Milestone                             | Scope                                                         | Observable completion                                                                                                                                                                                         |
+|---------------------------------------|---------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| L1 Configurable models                | LM-01, LM-02, initial LM-06 and LM-13                         | Public builders construct a multi-layer decoder; definition round-trip, gradients, masks, tied weights, and cached/full logits pass.                                                                          |
+| L2 Real-model inference               | LM-03, LM-07, initial LM-08/LM-09/LM-17, IO-04/IO-05, EXEC-05 | A selected pretrained decoder runs through an external consumer with distinct layer weights, output head, tokenizer, sampling, and growing KV cache; reference logits and full-run measurements are recorded. |
+| L3 Pretraining                        | LM-10, initial LM-14, LM-13                                   | A small decoder learns a token corpus, reports held-out perplexity, accumulates variable token counts correctly, and resumes reproducibly; GPU training has separate measured evidence.                       |
+| L4 Fine-tuning                        | LM-11, LM-05                                                  | Full and LoRA fine-tuning honor loss/freeze masks; saved adapters reload and reproduce logits, with merge parity where supported.                                                                             |
+| L5 Scale and precision                | Remaining LM-06/LM-08/LM-14, LM-12, EXEC-03                   | Long-context, batching, recomputation, and precision policies pass targeted memory/correctness checks; QLoRA has independent backward validation.                                                             |
+| L6 Architecture and objective breadth | LM-04, LM-15, LM-16, LM-18                                    | Encoder/decoder, MoE, advanced decoding, and preference objectives ship independently with their own acceptance tasks.                                                                                        |
 
 L2 is the first GPU inference milestone after the shared model/provider foundation.
 It does not wait for L3 training or every format/tokenizer provider. Choose one

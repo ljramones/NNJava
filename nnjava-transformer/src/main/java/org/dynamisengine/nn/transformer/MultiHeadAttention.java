@@ -1,30 +1,22 @@
 package org.dynamisengine.nn.transformer;
 
-import org.dynamisengine.nn.nn.*;
+import org.dynamisengine.nn.nn.AbstractModule;
+import org.dynamisengine.nn.nn.Dropout;
+import org.dynamisengine.nn.nn.Linear;
+import org.dynamisengine.nn.nn.UnaryModule;
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.runtime.ExecutionContext;
-import org.dynamisengine.nn.tensor.*;
+import org.dynamisengine.nn.tensor.Shape;
+import org.dynamisengine.nn.tensor.Tensor;
 
 /**
  * Configurable self-attention building block; inputs and outputs are [batch,time,features].
  */
 public final class MultiHeadAttention extends AbstractModule implements UnaryModule {
-    public record Config(int features, int heads, int kvHeads, boolean bias, boolean rotary, double rotaryBase,
-                         float dropout) {
-        public Config {
-            if (features <= 0 || heads <= 0 || kvHeads <= 0 || features % heads != 0 || heads % kvHeads != 0
-                    || rotary && features / heads % 2 != 0 || !Double.isFinite(rotaryBase) || rotaryBase <= 0
-                    || !Float.isFinite(dropout) || dropout < 0 || dropout >= 1) {
-                throw new IllegalArgumentException("Invalid attention configuration");
-            }
-        }
-    }
-
     private final Config config;
     private final Linear query, key, value, output;
     private final Dropout dropout;
     private final RotaryEmbedding rotary;
-
     public MultiHeadAttention(ExecutionContext context, int features, int heads, int kvHeads, long seed) {
         this(context, new Config(features, heads, kvHeads, false, true, 10000, 0), seed);
     }
@@ -93,5 +85,16 @@ public final class MultiHeadAttention extends AbstractModule implements UnaryMod
     protected java.util.Map<String, String> localConfiguration() {
         return java.util.Map.of("features", Integer.toString(config.features), "heads", Integer.toString(config.heads),
                 "kvHeads", Integer.toString(config.kvHeads));
+    }
+
+    public record Config(int features, int heads, int kvHeads, boolean bias, boolean rotary, double rotaryBase,
+                         float dropout) {
+        public Config {
+            if (features <= 0 || heads <= 0 || kvHeads <= 0 || features % heads != 0 || heads % kvHeads != 0
+                    || rotary && features / heads % 2 != 0 || !Double.isFinite(rotaryBase) || rotaryBase <= 0
+                    || !Float.isFinite(dropout) || dropout < 0 || dropout >= 1) {
+                throw new IllegalArgumentException("Invalid attention configuration");
+            }
+        }
     }
 }

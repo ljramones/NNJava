@@ -20,6 +20,7 @@ public final class DataLoader implements AutoCloseable {
     private long epoch;
     private int cursor;
     private boolean closed;
+
     public DataLoader(ExecutionContext context, Dataset dataset, int batchSize, boolean shuffle, boolean dropLast, long seed) {
         if (batchSize <= 0 || dataset.size() > Integer.MAX_VALUE - 8L) {
             throw new IllegalArgumentException("Invalid loader size/batch size");

@@ -12,33 +12,35 @@ Implemented artifacts use `org.dynamisengine` and one coordinated NNJava version
 The root is the `nnjava-parent` Maven aggregator. Generation and tokenizer modules
 remain planned; the optional GPU adapter implements the subset in the migration guide.
 
-| Artifact | Responsibility | Internal dependencies |
-| --- | --- | --- |
-| `nnjava-core` | Tensor metadata and ownership, Ops, autograd, execution contexts, backend SPI, neutral model/state contracts. | None |
-| `nnjava-backend-vectrix` | CPU numerical adapter and provider registration using `vectrix-core` and `vectrix-ml` 4.1.x (not the `vectrix` compatibility artifact). | core |
-| `nnjava-nn` | Parameters, modules, layer configurations, dense networks, composition, and NN builders. | core |
-| `nnjava-transformer` | Attention, positional components, decoder/encoder building blocks, KV caches, and language-model builders. | core, nn |
-| `nnjava-generation` | Token-based generation, sampling/logits processors, inference sessions, streaming, and batching/cache orchestration. | core, nn, transformer; no training or tokenizer dependency |
-| `nnjava-tokenizers` | Optional text/token interfaces, incremental decoding, vocabulary/special-token metadata, and tokenizer providers. | No numerical or training modules required |
-| `nnjava-data` | Dataset/batch interfaces, deterministic loaders, masks, padding, packing, and data transforms. | core |
-| `nnjava-io` | Tensor archives, model definitions/state, GGUF/safetensors parsing, model-only save/load, codecs, and schema migration. | core, nn; no numerical backend dependency |
-| `nnjava-training` | Losses, optimizers, schedules, metrics, Trainer, token-loss/adapter training helpers, callbacks, and full training checkpoint orchestration. | core, nn, data, io; transformer integration via public model interfaces |
-| `nnjava-backend-vectrix-gpu` | Optional GPU adapter with an exact mode (vectrix-gpu) and a throughput mode (`dynamis-gpu-primitives`), on the DynamisGPU runtime. | core; `vectrix-gpu`, `dynamis-gpu-primitives`, `dynamis-gpu-api`. The application adds `dynamis-gpu-metal` and/or `dynamis-gpu-vulkan` |
-| `nnjava` | Convenience starter assembling the CPU framework for applications that want a single dependency. | CPU capability modules above |
-| `nnjava-bom` | Align NNJava artifacts and tested numerical-provider versions. No runtime code. | Version constraints only |
-| `nnjava-examples` | Runnable classical architectures, LM construction/pretraining, pretrained inference, and adaptation through public APIs. | Selected nn, transformer, generation, tokenizers, data, io, training, and backend modules |
+| Artifact                     | Responsibility                                                                                                                               | Internal dependencies                                                                                                                  |
+|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| `nnjava-core`                | Tensor metadata and ownership, Ops, autograd, execution contexts, backend SPI, neutral model/state contracts.                                | None                                                                                                                                   |
+| `nnjava-backend-vectrix`     | CPU numerical adapter and provider registration using `vectrix-core` and `vectrix-ml` 4.1.x (not the `vectrix` compatibility artifact).      | core                                                                                                                                   |
+| `nnjava-nn`                  | Parameters, modules, layer configurations, dense networks, composition, and NN builders.                                                     | core                                                                                                                                   |
+| `nnjava-transformer`         | Attention, positional components, decoder/encoder building blocks, KV caches, and language-model builders.                                   | core, nn                                                                                                                               |
+| `nnjava-generation`          | Token-based generation, sampling/logits processors, inference sessions, streaming, and batching/cache orchestration.                         | core, nn, transformer; no training or tokenizer dependency                                                                             |
+| `nnjava-tokenizers`          | Optional text/token interfaces, incremental decoding, vocabulary/special-token metadata, and tokenizer providers.                            | No numerical or training modules required                                                                                              |
+| `nnjava-data`                | Dataset/batch interfaces, deterministic loaders, masks, padding, packing, and data transforms.                                               | core                                                                                                                                   |
+| `nnjava-io`                  | Tensor archives, model definitions/state, GGUF/safetensors parsing, model-only save/load, codecs, and schema migration.                      | core, nn; no numerical backend dependency                                                                                              |
+| `nnjava-training`            | Losses, optimizers, schedules, metrics, Trainer, token-loss/adapter training helpers, callbacks, and full training checkpoint orchestration. | core, nn, data, io; transformer integration via public model interfaces                                                                |
+| `nnjava-backend-vectrix-gpu` | Optional GPU adapter with an exact mode (vectrix-gpu) and a throughput mode (`dynamis-gpu-primitives`), on the DynamisGPU runtime.           | core; `vectrix-gpu`, `dynamis-gpu-primitives`, `dynamis-gpu-api`. The application adds `dynamis-gpu-metal` and/or `dynamis-gpu-vulkan` |
+| `nnjava`                     | Convenience starter assembling the CPU framework for applications that want a single dependency.                                             | CPU capability modules above                                                                                                           |
+| `nnjava-bom`                 | Align NNJava artifacts and tested numerical-provider versions. No runtime code.                                                              | Version constraints only                                                                                                               |
+| `nnjava-examples`            | Runnable classical architectures, LM construction/pretraining, pretrained inference, and adaptation through public APIs.                     | Selected nn, transformer, generation, tokenizers, data, io, training, and backend modules                                              |
 
 The GPU adapter depends on DynamisGPU directly:
+
 - **The runtime:** buffers, arenas, submissions, recording and strided views.
 - **The throughput kernels:** `dynamis-gpu-primitives`.
 
 vectrix-gpu supplies the exact twins and itself depends only on `dynamis-gpu-api`.
 
 The division of work:
+
 - **NNJava:** model and tensor semantics.
 - **Vectrix and vectrix-gpu:** CPU kernels and their exact GPU twins.
 - **DynamisGPU:** the runtime and the throughput kernels. NNJava should request missing kernels
-upstream rather than maintain a competing ML shader collection.
+  upstream rather than maintain a competing ML shader collection.
 
 A minimal inference application can select core, nn, transformer, io, and a backend.
 It should not need training or dataset infrastructure. The convenience starter can
@@ -122,6 +124,7 @@ native libraries to CPU-only consumers.
 ## Numerical dependency gate
 
 The CPU build uses Vectrix 4.1.0; the optional GPU adapter pins DynamisGPU 1.14.1.
+
 - **The CPU migration:** the earlier `vectrix-core`/`vectrix-ml` 4.0.0 scratch
   check passed. EXEC-01 and the module extraction are now implemented and
   verified against 4.1.0, including the SIMD configuration.

@@ -11,21 +11,21 @@ Production modules must not depend on examples.
 
 ## Architecture catalog and order
 
-| ID | Example | Demonstrated task | Required library support | Delivery wave |
-| --- | --- | --- | --- | --- |
-| EX-01 | Shared runner and example conventions | List/select examples, seed/configure runs, report metrics, save/reload. | Module extraction and builder conventions. | R1 foundation |
-| EX-02 | MLP / feed-forward classifier | XOR, tabular classification, and an optional digit-classification run. | Dense layers, activations, sequential builder, Trainer. | R2/R3 |
-| EX-03 | Autoencoder | Reconstruct small vectors or images through a bottleneck. | Encoder/decoder composition, reconstruction loss, model IO. | R3/R4 |
-| EX-04 | CNN / LeNet-style classifier | Classify small images. | Conv2D, pooling, flatten/reshape, dense head, image batches. | R4 |
-| EX-05 | Vanilla RNN | Sequence classification or short time-series prediction. | Recurrent cell/layer, hidden-state handling, sequence data. | R4 |
-| EX-06 | LSTM | Delayed recall or sequence forecasting with longer dependencies. | LSTM cell/state, sequence masking, backpropagation through time. | R4 |
-| EX-07 | GRU | A gated recurrent alternative on a comparable sequence task. | GRU cell/state and recurrent training APIs. | R4 |
-| EX-08 | Residual CNN | Build a small ResNet-style network. | CNN primitives, residual/branch builders, suitable normalization. | R4 follow-on |
-| EX-09 | Small causal transformer | Construct and inspect a configurable decoder; compare full and cached logits. | Attention, positions, gated blocks, tied embeddings, LM builder, caches. | R5 L1 |
-| EX-10 | Encoder/decoder sequence model | A small sequence-to-sequence task. | Encoder/decoder builders and cross-attention or recurrent composition. | R5 L6 |
-| EX-11 | Real pretrained-model inference | Load distinct layer weights and output head, tokenize, prefill, sample, and decode with a growing cache. | Weight reader/mapping, tokenizer, generation sessions, selected backend. | R5 L2 |
-| EX-12 | LM pretraining | Train on a small token corpus; measure held-out perplexity and resume. | Shifted/masked token data, Trainer, token-normalized accumulation, checkpoints. | R5 L3 |
-| EX-13 | Supervised and LoRA fine-tuning | Apply token loss masks, train selected parameters/adapters, save and reload. | Fine-tuning and LoRA helpers, frozen-base checks, adapter persistence. | R5 L4 |
+| ID    | Example                               | Demonstrated task                                                                                        | Required library support                                                        | Delivery wave |
+|-------|---------------------------------------|----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|---------------|
+| EX-01 | Shared runner and example conventions | List/select examples, seed/configure runs, report metrics, save/reload.                                  | Module extraction and builder conventions.                                      | R1 foundation |
+| EX-02 | MLP / feed-forward classifier         | XOR, tabular classification, and an optional digit-classification run.                                   | Dense layers, activations, sequential builder, Trainer.                         | R2/R3         |
+| EX-03 | Autoencoder                           | Reconstruct small vectors or images through a bottleneck.                                                | Encoder/decoder composition, reconstruction loss, model IO.                     | R3/R4         |
+| EX-04 | CNN / LeNet-style classifier          | Classify small images.                                                                                   | Conv2D, pooling, flatten/reshape, dense head, image batches.                    | R4            |
+| EX-05 | Vanilla RNN                           | Sequence classification or short time-series prediction.                                                 | Recurrent cell/layer, hidden-state handling, sequence data.                     | R4            |
+| EX-06 | LSTM                                  | Delayed recall or sequence forecasting with longer dependencies.                                         | LSTM cell/state, sequence masking, backpropagation through time.                | R4            |
+| EX-07 | GRU                                   | A gated recurrent alternative on a comparable sequence task.                                             | GRU cell/state and recurrent training APIs.                                     | R4            |
+| EX-08 | Residual CNN                          | Build a small ResNet-style network.                                                                      | CNN primitives, residual/branch builders, suitable normalization.               | R4 follow-on  |
+| EX-09 | Small causal transformer              | Construct and inspect a configurable decoder; compare full and cached logits.                            | Attention, positions, gated blocks, tied embeddings, LM builder, caches.        | R5 L1         |
+| EX-10 | Encoder/decoder sequence model        | A small sequence-to-sequence task.                                                                       | Encoder/decoder builders and cross-attention or recurrent composition.          | R5 L6         |
+| EX-11 | Real pretrained-model inference       | Load distinct layer weights and output head, tokenize, prefill, sample, and decode with a growing cache. | Weight reader/mapping, tokenizer, generation sessions, selected backend.        | R5 L2         |
+| EX-12 | LM pretraining                        | Train on a small token corpus; measure held-out perplexity and resume.                                   | Shifted/masked token data, Trainer, token-normalized accumulation, checkpoints. | R5 L3         |
+| EX-13 | Supervised and LoRA fine-tuning       | Apply token loss masks, train selected parameters/adapters, save and reload.                             | Fine-tuning and LoRA helpers, frozen-base checks, adapter persistence.          | R5 L4         |
 
 RNN, LSTM, and GRU examples should expose hidden/cell state behavior explicitly:
 sequence boundaries, state reset, variable lengths, and optional truncated
