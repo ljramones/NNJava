@@ -25,12 +25,14 @@ public final class MultiHeadAttention extends AbstractModule implements UnaryMod
         super(context);
         this.config = config;
         int kvFeatures = Math.multiplyExact(config.kvHeads, config.features / config.heads);
-        query = register("query", new Linear(context, config.features, config.features, seed, config.bias));
-        key = register("key", new Linear(context, config.features, kvFeatures, seed + 1, config.bias));
-        value = register("value", new Linear(context, config.features, kvFeatures, seed + 2, config.bias));
-        output = register("output", new Linear(context, config.features, config.features, seed + 3, config.bias));
-        dropout = register("dropout", new Dropout(context, config.dropout, seed + 4));
-        rotary = config.rotary ? register("rotary", new RotaryEmbedding(context, config.rotaryBase, true)) : null;
+        try {
+            query = register("query", new Linear(context, config.features, config.features, seed, config.bias));
+            key = register("key", new Linear(context, config.features, kvFeatures, seed + 1, config.bias));
+            value = register("value", new Linear(context, config.features, kvFeatures, seed + 2, config.bias));
+            output = register("output", new Linear(context, config.features, config.features, seed + 3, config.bias));
+            dropout = register("dropout", new Dropout(context, config.dropout, seed + 4));
+            rotary = config.rotary ? register("rotary", new RotaryEmbedding(context, config.rotaryBase, true)) : null;
+        } catch (RuntimeException | Error error) { close(); throw error; }
     }
 
     @Override

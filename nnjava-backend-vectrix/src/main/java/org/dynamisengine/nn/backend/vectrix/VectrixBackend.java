@@ -18,6 +18,7 @@ import java.util.Set;
  * Synchronous array-backed CPU implementation. Scratch belongs to this context's backend.
  */
 public final class VectrixBackend implements Backend {
+    @Override public long maxElements(DType dtype) { return Integer.MAX_VALUE - 8L; }
     private final Device device = new Device("vectrix", "cpu");
     private final Set<CpuBuffer> allocations = new HashSet<>();
     private float[] scratch = new float[0];

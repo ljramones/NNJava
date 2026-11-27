@@ -58,6 +58,9 @@ public final class ExecutionContext implements AutoCloseable {
         return backend.supports(operation, dtype);
     }
 
+    public boolean supportsNormalInitialization() { ensureOpen(); return backend.supportsNormalInitialization(); }
+    public long maxElements(DType dtype) { ensureOpen(); return backend.maxElements(dtype); }
+
     public void checkThread() {
         if (Thread.currentThread() != owner) {
             throw new IllegalStateException("Execution contexts are thread-confined");
@@ -160,6 +163,10 @@ public final class ExecutionContext implements AutoCloseable {
     }
 
     public Tensor normal(Shape shape, long seed, float standardDeviation, boolean requiresGrad) {
+        ensureOpen();
+        if (!backend.supportsNormalInitialization()) {
+            throw new UnsupportedOperationException(device() + " does not support normal initialization");
+        }
         if (!Float.isFinite(standardDeviation) || standardDeviation < 0) {
             throw new IllegalArgumentException("Invalid normal standard deviation");
         }

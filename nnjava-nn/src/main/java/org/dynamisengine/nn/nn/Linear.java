@@ -9,6 +9,50 @@ import org.dynamisengine.nn.tensor.Tensor;
  * Projection over the last axis; weights are [outputs, inputs].
  */
 public final class Linear extends AbstractModule implements UnaryModule {
+    public static Builder builder() { return new Builder(); }
+
+    public record Definition(String name, long inputFeatures, long outputFeatures, boolean bias, long seed)
+            implements ModelDefinition<Linear> {
+        public Definition {
+            ModelBuild.name(name);
+            if (inputFeatures <= 0 || outputFeatures <= 0) { throw new IllegalArgumentException("Positive feature counts required"); }
+            Shape.of(outputFeatures, inputFeatures);
+        }
+        @Override public void validate(ExecutionContext context) {
+            ModelBuild.context(context);
+            ModelBuild.parameter(context, name + ".weight", Shape.of(outputFeatures, inputFeatures), true);
+            if (bias) { ModelBuild.parameter(context, name + ".bias", Shape.of(outputFeatures), false); }
+            ModelBuild.require(context, name, org.dynamisengine.nn.tensor.DType.FP32,
+                    org.dynamisengine.nn.backend.Operation.COPY, org.dynamisengine.nn.backend.Operation.FILL,
+                    org.dynamisengine.nn.backend.Operation.MATMUL, org.dynamisengine.nn.backend.Operation.SUM_TO);
+            if (bias) { ModelBuild.require(context, name, org.dynamisengine.nn.tensor.DType.FP32, org.dynamisengine.nn.backend.Operation.ADD); }
+        }
+        @Override public Linear build(ExecutionContext context) { validate(context); return new Linear(context, inputFeatures, outputFeatures, seed, bias); }
+        @Override public org.dynamisengine.nn.model.ComponentSpec specification() {
+            return new org.dynamisengine.nn.model.ComponentSpec("nnjava.linear", 1, name,
+                    java.util.Map.of("inputs", Long.toString(inputFeatures), "outputs", Long.toString(outputFeatures),
+                            "bias", Boolean.toString(bias), "seed", Long.toString(seed)), java.util.List.of());
+        }
+        public static Definition fromSpec(org.dynamisengine.nn.model.ComponentSpec spec) {
+            spec.require("nnjava.linear", 1, "inputs", "outputs", "bias", "seed");
+            if (!spec.children().isEmpty()) { throw new IllegalArgumentException("Linear definition cannot have children"); }
+            return new Definition(spec.name(), spec.longValue("inputs"), spec.longValue("outputs"), spec.booleanValue("bias"), spec.longValue("seed"));
+        }
+    }
+
+    public static final class Builder {
+        private String name = "linear";
+        private long inputs, outputs, seed;
+        private boolean bias = true;
+        private Builder() { }
+        public Builder name(String value) { ModelBuild.name(value); name = value; return this; }
+        public Builder inputFeatures(long value) { inputs = value; return this; }
+        public Builder outputFeatures(long value) { outputs = value; return this; }
+        public Builder bias(boolean value) { bias = value; return this; }
+        public Builder seed(long value) { seed = value; return this; }
+        public Definition define() { return new Definition(name, inputs, outputs, bias, seed); }
+        public Linear build(ExecutionContext context) { return define().build(context); }
+    }
     private final long inputFeatures;
     private final long outputFeatures;
     private final Parameter weight;

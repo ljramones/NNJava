@@ -5,8 +5,10 @@ assemble while retaining custom modules and explicit runtime ownership. Builders
 produce reusable configurations and definitions; a terminal build operation creates
 the executable module in a chosen context.
 
-This is proposed API design. The examples describe intended syntax and are not
-currently implemented methods.
+Implemented now: immutable sequential and Linear definitions, named NN builders,
+layer specifications, custom-layer decoder hooks, and checked definition files.
+Transformer, generation, and Trainer sections below describe subsequent work unless
+explicitly marked implemented.
 
 ## Builder layers
 
@@ -27,24 +29,43 @@ re-export common entry points; it should not become a separate implementation.
 
 ```java
 var definition = NeuralNetwork.builder()
-        .name("digit-classifier")
-        .inputFeatures(784)
-        .seed(42)
-        .dense("hidden", 256, ActivationKind.RELU)
-        .dropout("regularization", 0.1f)
-        .dense("logits", 10)
-        .define();
+    .name("digit-classifier")
+    .inputFeatures(784)
+    .seed(42)
+    .dense("hidden", 256, Activation.Kind.RELU)
+    .dropout("regularization", 0.1f)
+    .dense("logits", 10)
+    .define();
 
-try(
-var model = definition.build(context)){
-        // Forward, train, save, or inspect through the normal module API.
-        }
+try (var model = definition.build(context)) {
+    // Use ordinary forward calls, explicit training loops, and state archives.
+}
 ```
 
-Also support a direct `.build(context)` terminal operation for short examples.
-`.define()` should allocate no tensors or device resources. A definition can be
-inspected, serialized, and instantiated again. Explicitly named components retain
-stable parameter paths; automatically generated names follow deterministic rules.
+A direct `.build(context)` terminal operation is also implemented. `.define()`
+allocates no tensors or device resources and snapshots the reusable mutable builder.
+Input sample shapes exclude leading batch/sequence axes; flatten and reshape
+preserve those prefixes. Each dense component owns a `linear` child, so parameter
+paths include `hidden.linear.weight`. Component seeds derive from the root seed
+and stable layer name, independently of parameterless insertions.
+
+`Layers.dense(units).bias(false)` and other immutable `LayerDefinition` values
+configure advanced layers through `.layer(name, specification)`. The standalone
+`Linear.builder().inputFeatures(2).outputFeatures(4).seed(42)` also supports
+`.define()` and `.build(context)`.
+
+Persist definitions independently of weights:
+
+```java
+ModelDefinitions.write(path, definition.specification());
+var restored = NeuralNetwork.Definition.fromSpec(ModelDefinitions.read(path));
+```
+
+Files have a schema/header, checksum, bounded nesting/size, and atomic replacement.
+Unknown component versions/settings are rejected by typed definition decoders.
+Custom `LayerDefinition` implementations supply inference, validation, construction,
+and a stable `ComponentSpec`; `fromSpec(spec, explicitDecoderMap)` restores their
+registered type IDs. Custom factories own their construction-failure cleanup.
 
 Layer-level builders provide advanced options without overloading the short DSL:
 initialization, bias, activation, precision overrides, and shared parameters.

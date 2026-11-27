@@ -23,6 +23,12 @@ public interface Backend extends AutoCloseable {
 
     Buffer allocate(DType dtype, long elements);
 
+    /** Allocation metadata limits, available before model construction. */
+    default long maxElements(DType dtype) { return Long.MAX_VALUE; }
+
+    /** Whether counter-based normal initialization is implemented on this provider. */
+    default boolean supportsNormalInitialization() { return true; }
+
     Completion execute(KernelCall call);
 
     default Completion update(OptimizerCall call) {

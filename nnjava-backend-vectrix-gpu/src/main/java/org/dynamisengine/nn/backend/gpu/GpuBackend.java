@@ -41,6 +41,8 @@ import org.dynamisengine.vectrix.compute.GpuPointwise;
  * training backend. All numerical kernels come from the released upstream stack.
  */
 public final class GpuBackend implements Backend {
+    @Override public long maxElements(DType dtype) { return Integer.MAX_VALUE; }
+    @Override public boolean supportsNormalInitialization() { return false; }
     private final GpuDevice gpu;
     private final GpuMode mode;
     private final Device device;

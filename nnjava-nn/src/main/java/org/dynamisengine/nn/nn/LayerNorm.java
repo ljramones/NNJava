@@ -16,7 +16,8 @@ public final class LayerNorm extends AbstractModule implements UnaryModule {
         }
         this.epsilon = epsilon;
         scale = constantParameter("weight", Shape.of(features), 1);
-        bias = constantParameter("bias", Shape.of(features), 0);
+        try { bias = constantParameter("bias", Shape.of(features), 0); }
+        catch (RuntimeException | Error error) { close(); throw error; }
     }
 
     @Override
