@@ -133,9 +133,10 @@ public final class CheckpointRun {
         if (minCycles<1 || !Double.isFinite(minSeconds) || minSeconds<0) throw new IllegalArgumentException("Generation interval");
         try(var summary=Files.newBufferedWriter(out.resolve("generation-trajectories.csv"));
             var detail=Files.newBufferedWriter(out.resolve("generation-steps.csv"))) {
-            summary.write("cycle,seed,temperature,start_depth,tokens,ended_eog,wall_ns,first_select_ns,first_complete_step_ns\n");
-            detail.write("cycle,position,token_id,select_ns,complete_step_ns\n");
+            summary.write("cycle,seed,temperature,start_depth,tokens,ended_eog,wall_ns,first_select_ns,first_complete_step_ns,start_offset_ns,end_offset_ns\n");
+            detail.write("cycle,position,token_id,select_ns,complete_step_ns,complete_offset_ns\n");
             int cycle=0;
+            long tokens=0;
             long interval=System.nanoTime();
             do {
                 session.truncate(depth);
@@ -143,7 +144,7 @@ public final class CheckpointRun {
                 long seed=17000L+cycle;
                 var sampler=new LlamaModel.Sampler(.7,seed);
                 int[] chosen=new int[128];
-                long[] select=new long[128], step=new long[128];
+                long[] select=new long[128], step=new long[128], completed=new long[128];
                 int count=0;
                 long start=System.nanoTime();
                 boolean ended;
@@ -154,19 +155,25 @@ public final class CheckpointRun {
                     chosen[count]=token;
                     logits=session.decode(token);
                     require(logits.length==128256 && Float.isFinite(logits[0]),"Generation logits");
-                    step[count]=System.nanoTime()-t;
+                    long done=System.nanoTime();
+                    step[count]=done-t;
+                    completed[count]=done-interval;
                     ended=LlamaModel.isEndOfGeneration(token);
                     count++;
                 } while(count<128 && !ended);
-                long elapsed=System.nanoTime()-start;
+                long end=System.nanoTime();
+                long elapsed=end-start;
                 cycle++;
+                tokens+=count;
                 require(session.position()==depth+count,"Generation position");
-                summary.write(cycle+","+seed+",0.7,"+depth+","+count+","+ended+","+elapsed+","+select[0]+","+step[0]+"\n");
+                summary.write(cycle+","+seed+",0.7,"+depth+","+count+","+ended+","+elapsed+","+select[0]+","+step[0]+","+(start-interval)+","+(end-interval)+"\n");
                 for(int j=0;j<count;j++)
-                    detail.write(cycle+","+(depth+j)+","+chosen[j]+","+select[j]+","+step[j]+"\n");
+                    detail.write(cycle+","+(depth+j)+","+chosen[j]+","+select[j]+","+step[j]+","+completed[j]+"\n");
                 summary.flush();
                 detail.flush();
             } while(cycle<minCycles || (System.nanoTime()-interval)*1e-9<minSeconds);
+            long fullNs=System.nanoTime()-interval;
+            Files.writeString(out.resolve("generation-window.csv"), "cycles,tokens,elapsed_ns\n"+cycle+","+tokens+","+fullNs+"\n");
         }
     }
 
