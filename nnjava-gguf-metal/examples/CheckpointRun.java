@@ -171,30 +171,25 @@ public final class CheckpointRun {
     }
 
     private static void raceSessionOwnership(LlamaModel model) throws Exception {
-        var start=new java.util.concurrent.CountDownLatch(1);
-        var attempts=new java.util.concurrent.CountDownLatch(2);
-        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)) {
-            java.util.concurrent.Callable<Boolean> contender=() -> {
-                start.await();
-                LlamaModel.Session acquired;
-                try {
-                    acquired=model.session();
-                } catch(IllegalStateException busy) {
-                    return false;
-                } finally {
-                    attempts.countDown();
-                }
-                try(acquired) {
-                    if(!attempts.await(30,java.util.concurrent.TimeUnit.SECONDS))
-                        throw new IllegalStateException("Concurrent session admission timed out");
-                    return true;
-                }
-            };
-            var first=pool.submit(contender);
-            var second=pool.submit(contender);
-            start.countDown();
-            require(first.get()!=second.get(),"Exactly one overlapping acquisition must succeed");
+        try (var participants = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            // Test the foreign thread while the model is idle as well as while a valid sequence is active.
+            participants.submit(() -> mustRejectForeign(model::session)).get();
+            try (var owningSession = model.session()) {
+                participants.submit(() -> {
+                    mustRejectForeign(model::session);
+                    mustRejectForeign(() -> owningSession.decode(0));
+                    mustRejectForeign(owningSession::close);
+                    mustRejectForeign(model::close);
+                }).get();
+                require(owningSession.position() == 0, "Foreign thread changed model or KV state");
+            }
         }
+    }
+
+    private static void mustRejectForeign(Runnable action) {
+        try { action.run(); }
+        catch (IllegalStateException expected) { return; }
+        throw new AssertionError("Foreign thread used the GPU model");
     }
 
     private static byte[] bytes(float[] values) {

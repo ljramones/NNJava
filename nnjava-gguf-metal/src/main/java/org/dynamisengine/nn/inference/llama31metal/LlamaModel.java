@@ -11,7 +11,8 @@ import org.dynamisengine.gpu.primitives.PagedKvCache;
 
 /**
  * Resident Llama 3.1 8B Q4_K_M weights for native Metal. One synchronous session owns the KV
- * cache and reusable scratch at a time. Closing the session releases its pages for the next session.
+ * cache and reusable scratch at a time. The thread that opens the model owns inference and closure.
+ * Closing the session releases its pages for the next session.
  * The caller owns all returned FP32 logits. Text and token-ID callers use the same inference path.
  */
 public final class LlamaModel implements AutoCloseable {
@@ -20,6 +21,7 @@ public final class LlamaModel implements AutoCloseable {
     public record LoadTimes(long totalReadyNs, long ggufOpenAndValidationNs, long matrixRepackNs,
                             long uploadAndWaitNs, long reconstructionRangeNs) {}
 
+    private final Thread owner = Thread.currentThread();
     private final Gguf file;
     private final GpuDevice device;
     private final MetalGraph graph;
@@ -129,19 +131,31 @@ public final class LlamaModel implements AutoCloseable {
         active = new Session(graph.sequence());
         return active;
     }
-    private void requireOpen() { if (closed) throw new IllegalStateException("Model is closed"); }
+    private void requireOpen() {
+        requireOwner(owner);
+        if (closed) throw new IllegalStateException("Model is closed");
+    }
+
+    static void requireOwner(Thread owner) {
+        if (Thread.currentThread() != owner)
+            throw new IllegalStateException("GPU model operations require the thread that opened the model");
+    }
 
     @Override public synchronized void close() {
-        if (closed) return;
-        closed = true;
+        requireOwner(owner);
         try {
-            if (active != null) active.close();
-        } finally {
-            try { graph.close(); }
-            finally {
-                try { device.close(); }
-                finally { file.close(); }
+            if (!closed) {
+                closed = true;
+                try {
+                    if (active != null) active.close();
+                } finally {
+                    try { graph.close(); }
+                    finally { file.close(); }
+                }
             }
+        } finally {
+            // The device retains pending commands after a drain timeout. Its owner can retry close().
+            device.close();
         }
     }
 
@@ -161,7 +175,7 @@ public final class LlamaModel implements AutoCloseable {
         }
     }
 
-    /** Single-owner KV sequence. Concurrent method calls on the resident model serialize. */
+    /** Single-owner KV sequence. GPU operations stay on the thread that opened the resident model. */
     public final class Session implements AutoCloseable {
         private final PagedKvCache.Sequence sequence;
         private Session(PagedKvCache.Sequence sequence) { this.sequence=sequence; }
@@ -245,6 +259,7 @@ public final class LlamaModel implements AutoCloseable {
 
         @Override public void close() {
             synchronized (LlamaModel.this) {
+                requireOwner(owner);
                 if(active!=this) return;
                 try { sequence.close(); } finally { active=null; }
             }

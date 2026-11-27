@@ -35,6 +35,34 @@ class LlamaModelTest {
         assertThrows(IllegalArgumentException.class, () -> LlamaModel.sample(new float[]{Float.NaN,1},1,b));
     }
 
+    @Test void checksOwnerBeforeRecordingOrClosing() throws Exception {
+        Thread owner = Thread.currentThread();
+        assertDoesNotThrow(() -> LlamaModel.requireOwner(owner));
+        try (var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            executor.submit(() -> assertThrows(IllegalStateException.class, () -> LlamaModel.requireOwner(owner))).get();
+        }
+        assertDoesNotThrow(() -> LlamaModel.requireOwner(owner));
+    }
+
+    @Test void publicSamplerValidatesTheDistributionAndKeepsItsStream() {
+        assertThrows(IllegalArgumentException.class, () -> new LlamaModel.Sampler(Double.NaN, 4));
+        var first = new LlamaModel.Sampler(.7, 787);
+        var second = new LlamaModel.Sampler(.7, 787);
+        assertThrows(IllegalArgumentException.class, () -> first.next(new float[12]));
+        float[] logits = new float[128256];
+        java.util.Arrays.fill(logits, -1000);
+        logits[8] = logits[92] = logits[128001] = 1;
+        var seen = new java.util.HashSet<Integer>();
+        for (int i = 0; i < 16; i++) {
+            int picked = first.next(logits);
+            assertEquals(picked, second.next(logits));
+            seen.add(picked);
+        }
+        assertEquals(java.util.Set.of(8, 92, 128001), seen);
+        logits[5] = Float.NEGATIVE_INFINITY;
+        assertThrows(IllegalArgumentException.class, () -> first.next(logits));
+    }
+
     @Test void rejectsMalformedFileBeforeOpeningDevice(@TempDir Path tmp) throws Exception {
         Path file=tmp.resolve("invalid.gguf");
         Files.write(file,new byte[24]);
