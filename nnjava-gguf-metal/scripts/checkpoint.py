@@ -37,6 +37,25 @@ def compare(a,b):
                 passed=ab<=1 and rms<=.15 and kl<=.01 and ta[0] in tb[:5] and tb[0] in ta[:5])
 
 
+def score_capture(a):
+    report={}
+    required={a.depth-1,a.depth,a.depth+63,a.depth+64,a.depth+127}
+    extra={0,63,64,511} if a.depth==4096 else set()
+    for pos in sorted(required|extra):
+        name=f'logits-{pos}.f32'
+        data=(a.out/name).read_bytes()
+        row=dict(result_sha256=sha256(data).hexdigest())
+        if pos in required or (a.reference/name).is_file():
+            row.update(compare(logits(a.reference/name),logits(a.out/name)))
+        if a.runner_reference and (pos in required or (a.runner_reference/name).is_file()):
+            row['runner_bit_identical']=data==(a.runner_reference/name).read_bytes()
+        if len(row)>1:
+            report[str(pos)]=row
+    (a.out/'agreement.json').write_text(json.dumps(report,indent=2)+'\n')
+    if any(not (r.get('passed',True) and r.get('runner_bit_identical',True)) for r in report.values()):
+        raise ValueError('Public-session logit gate failed')
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model',type=Path,required=True)
@@ -65,27 +84,24 @@ def main():
         modelhash=file_digest(f,'sha256').hexdigest()
     if modelhash!='667b0c1932bc6ffc593ed1d03f895bf2dc8dc6df21db3042284a6f4416b06a29': raise ValueError('Unexpected fixture checkpoint')
     metadata=dict(model_sha256=modelhash,token_sha256=sha256(a.tokens.read_bytes()).hexdigest(),argv=command,
-                  jar_sha256=sha256(jars[0].read_bytes()).hexdigest(),revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=MODULE,text=True).strip())
+                  jar_sha256=sha256(jars[0].read_bytes()).hexdigest(),
+                  runtime_jars={Path(p).name:sha256(Path(p).read_bytes()).hexdigest() for p in cpfile.read_text().strip().split(os.pathsep)},
+                  revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=MODULE,text=True).strip())
     (a.out/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
-    with (a.out/'process.log').open('wb') as log:
-        subprocess.run(command,stdout=log,stderr=subprocess.STDOUT,check=True)
+    with (a.out/'process.log').open('w') as log:
+        env=dict(os.environ,NNJAVA_EXPECT_HOST_GATE='1')
+        with subprocess.Popen(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True,env=env) as process:
+            try:
+                marker=process.stdout.readline().strip()
+                if marker!='CAPTURE_READY': raise ValueError('Missing public capture completion: '+marker)
+                score_capture(a)
+                process.stdin.write('PASS\n')
+                process.stdin.flush()
+                for line in process.stdout: log.write(line)
+            finally:
+                process.stdin.close()
+            if process.wait()!=0: raise ValueError('Public consumer failed; see process.log')
     if (a.out/'completed').read_text().strip()!='ok':raise ValueError('Incomplete public run')
-    report={}
-    required={a.depth-1,a.depth,a.depth+63,a.depth+64,a.depth+127}
-    extra={0,63,64,511} if a.depth==4096 else set()
-    for pos in sorted(required|extra):
-        name=f'logits-{pos}.f32'
-        data=(a.out/name).read_bytes()
-        row=dict(result_sha256=sha256(data).hexdigest())
-        if pos in required or (a.reference/name).is_file():
-            row.update(compare(logits(a.reference/name),logits(a.out/name)))
-        if a.runner_reference and (pos in required or (a.runner_reference/name).is_file()):
-            row['runner_bit_identical']=data==(a.runner_reference/name).read_bytes()
-        if len(row)>1:
-            report[str(pos)]=row
-    (a.out/'agreement.json').write_text(json.dumps(report,indent=2)+'\n')
-    if any(not (r.get('passed',True) and r.get('runner_bit_identical',True)) for r in report.values()):
-        raise ValueError('Public-session logit gate failed')
     with (a.out/'trajectories.csv').open() as f: tr=list(csv.DictReader(f))
     count=sum(int(r['tokens']) for r in tr)
     ns=sum(int(r['wall_ns']) for r in tr)

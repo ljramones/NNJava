@@ -35,9 +35,15 @@ Use `model.session()` to begin an empty sequence. A single live session per mode
 - `model.tokenizer()` lazily loads checkpoint vocabulary and merges. Supply a caller-selected chat template if the application needs one.
 - `model.loadTimes()` reports GGUF open and validation, matrix repacking, range checks, buffer upload including its wait, and total ready time. Some initialization, including pipeline compilation, is lazy; time the first token separately.
 
+## Numerical evidence and limits
+
+The original checkpoint sequence passed all nine frozen native logit checks in both modes. On three independent documents Step 12 selected 45 positions covering close decisions and decode after the reconstructed prefix. Packed and reconstructed NNJava each passed 43 of 45 native checks. Their worst KL divergences were 0.02174 and 0.02296 nats, respectively, against the declared 0.01 bound. Reconstructed and packed outputs passed all 45 pairwise tolerances; one top-token decision differed. The public default remains packed. Both routes retain the model-level limitations shown by these independent checks.
+
+The production artifact contains the model, GPU graph, GGUF reader, range checker and tokenizer. The graph and reader were extracted from the previously verified real-checkpoint harness; profiling, frozen inputs and experimental server code stay outside the jar. This optional module does not alter the existing CPU build or introduce a training dependency. Performance figures are specific to the measured 40-core M4 Max.
+
 ## Hardware comparison through the packaged API
 
-`examples/CheckpointRun.java` is an ordinary consumer of the installed public API. `scripts/checkpoint.py` compiles that consumer against the packaged JAR, checks the model SHA-256, and runs it under the inherited hardware benchmark lock. It records load and first-token timings, warm-file prompt ingestion, 128 advancing outputs, and greedy/seeded generation with EOS and stop checks. It verifies output sampling on the same seed and the ownership and reset contract. The timed trajectories retain the same occupied 4K or 32K position between runs.
+`examples/CheckpointRun.java` is an ordinary consumer of the installed public API. `scripts/checkpoint.py` compiles that consumer against the packaged JAR, checks the model SHA-256, and runs it under the inherited hardware benchmark lock. It records load and first-token timings, warm-file prompt ingestion, 128 advancing outputs, and greedy/seeded generation with EOS and stop checks. It verifies all frozen reference checks before timing, repeats sampling on the same seed, and races two overlapping session acquisitions to verify that exactly one acquires ownership. It checks close, reuse and prefix truncation. The timed trajectories retain the same occupied 4K or 32K position between runs.
 
 ```sh
 python3 "$DYNAMISGPU/scripts/with-benchmark-lock.py" -- python3 scripts/checkpoint.py \

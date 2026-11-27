@@ -33,6 +33,7 @@ public final class CheckpointRun {
         int[] prefix=Arrays.copyOf(ids,depth);
         try (var model=LlamaModel.open(file,ids.length,precision)) {
             var load=model.loadTimes();
+            raceSessionOwnership(model);
             try(var sessions=model.session()) {
                 try {model.session(); throw new AssertionError("Concurrent session accepted");}
                 catch(IllegalStateException expected) {require(sessions.position()==0,"Live sequence changed");}
@@ -68,6 +69,12 @@ public final class CheckpointRun {
                     if(i==0 || i==63 || i==64 || i==127) dump(out,depth+i,v);
                 }
                 require(seq.position()==ids.length,"Advancing capture length");
+                if ("1".equals(System.getenv("NNJAVA_EXPECT_HOST_GATE"))) {
+                    System.out.println("CAPTURE_READY");
+                    System.out.flush();
+                    var channel=new java.io.BufferedReader(new java.io.InputStreamReader(System.in));
+                    require("PASS".equals(channel.readLine()),"Reference scoring stopped timing");
+                }
                 // Validate that keeping prefix pages across subsequent trajectories reproduces the captured decode exactly.
                 seq.truncate(depth);
                 float[] replay=seq.decode(ids[depth]);
@@ -117,6 +124,33 @@ public final class CheckpointRun {
             }
         }
         Files.writeString(out.resolve("completed"),"ok\n");
+    }
+
+    private static void raceSessionOwnership(LlamaModel model) throws Exception {
+        var start=new java.util.concurrent.CountDownLatch(1);
+        var attempts=new java.util.concurrent.CountDownLatch(2);
+        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<Boolean> contender=() -> {
+                start.await();
+                LlamaModel.Session acquired;
+                try {
+                    acquired=model.session();
+                } catch(IllegalStateException busy) {
+                    return false;
+                } finally {
+                    attempts.countDown();
+                }
+                try(acquired) {
+                    if(!attempts.await(30,java.util.concurrent.TimeUnit.SECONDS))
+                        throw new IllegalStateException("Concurrent session admission timed out");
+                    return true;
+                }
+            };
+            var first=pool.submit(contender);
+            var second=pool.submit(contender);
+            start.countDown();
+            require(first.get()!=second.get(),"Exactly one overlapping acquisition must succeed");
+        }
     }
 
     private static byte[] bytes(float[] values) {
