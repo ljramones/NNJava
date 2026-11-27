@@ -1,0 +1,2 @@
+org.dynamisengine.nn.backend.gpu.ExactGpuProvider
+org.dynamisengine.nn.backend.gpu.ThroughputGpuProvider

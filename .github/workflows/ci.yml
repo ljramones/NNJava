@@ -1,0 +1,65 @@
+name: CPU verification
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        profile: [scalar, simd]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - uses: actions/checkout@v4
+        with:
+          repository: ljramones/dynamis-parent
+          ref: 3dbb5e8827e0eac1f11864c15f8f83661d72bbb9
+          path: .ci-deps/dynamis-parent
+      - name: Install parent and published Vectrix 4.1.0
+        run: |
+          mvn -B -f .ci-deps/dynamis-parent/pom.xml install
+          curl -fsSL -o "$RUNNER_TEMP/vectrix.zip" \
+            https://github.com/ljramones/vectrix/releases/download/v4.1.0/vectrix-4.1.0-maven.zip
+          unzip -q "$RUNNER_TEMP/vectrix.zip" -d "$RUNNER_TEMP"
+          sh "$RUNNER_TEMP/vectrix-4.1.0/install.sh"
+      - name: Verify and install CPU framework
+        env:
+          NN_PROFILE: ${{ matrix.profile }}
+        run: |
+          if [ "$NN_PROFILE" = simd ]; then
+            mvn -B -Psimd clean install
+          else
+            mvn -B clean install
+          fi
+      - name: Verify standalone consumer
+        run: |
+          mvn -B -f examples/consumer/pom.xml compile exec:java
+          mvn -B -f examples/inference-consumer/pom.xml compile
+          python3 tools/verify_module_consumers.py
+
+  gpu-portable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Install published numerical stack
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/vectrix.zip" \
+            https://github.com/ljramones/vectrix/releases/download/v4.1.0/vectrix-4.1.0-maven.zip
+          unzip -q "$RUNNER_TEMP/vectrix.zip" -d "$RUNNER_TEMP"
+          sh "$RUNNER_TEMP/vectrix-4.1.0/install.sh"
+          curl -fsSL -o "$RUNNER_TEMP/dynamisgpu.zip" \
+            https://github.com/ljramones/DynamicGPU/releases/download/v1.14.1/dynamisgpu-1.14.1-maven.zip
+          unzip -q "$RUNNER_TEMP/dynamisgpu.zip" -d "$RUNNER_TEMP"
+          sh "$RUNNER_TEMP/dynamisgpu-1.14.1/install.sh"
+      - name: Compile GPU adapter and verify portable contracts
+        run: mvn -B -Pgpu clean verify

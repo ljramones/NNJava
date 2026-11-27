@@ -1,0 +1,129 @@
+# Modular Framework and GPU Foundation
+
+The 2026-11-27 implementation extracts the existing CPU framework into Maven and
+JPMS modules, upgrades numerical dependencies, and adds an initial optional GPU
+adapter. Fluent model definitions and full GPU NN/LLM execution remain roadmap work.
+
+## Dependencies and consumption
+
+Use JDK 25. The build pins Vectrix 4.1.0 (`vectrix-core`, `vectrix-ml`, and optional
+`vectrix-gpu`) and DynamisGPU 1.14.1. Install their GitHub release Maven bundles
+before building; neither numerical library is resolved from a sibling source tree.
+The `simd` profile selects both Vectrix CPU classifiers and excludes the transitive
+plain core jar. Applications using them enable `jdk.incubator.vector`.
+
+The root artifact is now `org.dynamisengine:nnjava-parent:0.1.0-SNAPSHOT`, packaging
+`pom`. Applications can use the `nnjava` CPU starter or select capability artifacts
+through `nnjava-bom`. The old `neuralnetworks` coordinate is a compatibility starter
+that transitively exposes the CPU framework. GPU dependencies remain opt-in.
+
+| Artifact | JPMS name |
+| --- | --- |
+| `nnjava-core` | `org.dynamisengine.nn.core` |
+| `nnjava-backend-vectrix` | `org.dynamisengine.nn.backend.vectrix` |
+| `nnjava-nn` | `org.dynamisengine.nn.layers` |
+| `nnjava-transformer` | `org.dynamisengine.nn.transformer` |
+| `nnjava-data` | `org.dynamisengine.nn.data` |
+| `nnjava-io` | `org.dynamisengine.nn.io` |
+| `nnjava-training` | `org.dynamisengine.nn.training` |
+| `nnjava` | `org.dynamisengine.nn.starter` |
+| `neuralnetworks` | `org.dynamisengine.nn` |
+| `nnjava-examples` | `org.dynamisengine.nn.examples` |
+| `nnjava-backend-vectrix-gpu` | `org.dynamisengine.nn.backend.gpu` |
+
+Integration tests and JMH are separate development modules. Generation and
+tokenizer modules will be introduced with their implementations.
+
+## Provider and persistence changes
+
+Core no longer imports Vectrix. `ExecutionContext.cpu()` resolves the `vectrix`
+provider; `ExecutionContext.open(providerId, deviceId)` selects another explicitly.
+`BackendProviders.available()` lists IDs without opening devices. Providers are
+registered through both JPMS and class-path service descriptors. A core-only
+application gets a clear missing-provider error when requesting CPU execution.
+
+Two experimental imports change:
+
+- `org.dynamisengine.nn.io.TensorSnapshot` becomes
+  `org.dynamisengine.nn.state.TensorSnapshot` in core.
+- `org.dynamisengine.nn.io.Checkpoint` becomes
+  `org.dynamisengine.nn.training.Checkpoint` for full training checkpoints.
+
+Model-only consumers use `io.StateArchive` and `io.StateDict`, with no training/data
+dependency. Archives carry neutral `state.ComponentState` records; training maps
+optimizer state onto them. A binary fixture produced by the old monolithic JAR
+checks version-1 checkpoint reading and byte-identical rewriting.
+
+FP16/BF16 are storage types with raw `short[]` upload/readback and snapshots.
+The CPU adapter supports storage/view copies, not low-precision arithmetic or
+gradients. Original FP32/INT32/BOOL archive type IDs are preserved; archives with
+the new types require the new reader. GPU BOOL storage uses 32-bit mask words.
+
+## Initial GPU capabilities
+
+The optional adapter accepts an owned DynamisGPU `GpuDevice` and `GpuMode`, or is
+opened through providers `vectrix-gpu-exact` and `dynamis-gpu-throughput`.
+It uses DynamisGPU allocation pools, private buffers, an ordered queue, and
+submission completion. Readbacks publish after completion; pending bounded waits
+retain resources and retry. Kernel objects are created lazily.
+
+Implemented coverage:
+
+- FP32, INT32, BOOL, FP16, and BF16 transfers, including empty tensors.
+- FP32/INT32/BOOL view copies on-device; whole-buffer low-precision copies.
+- FP32 fill, add/subtract/multiply/divide, exp/log/sqrt, scale, AXPY, and rank-two
+  GEMM with row-major or transpose views and offsets.
+- Exact arithmetic through Vectrix twins; throughput arithmetic through DynamisGPU
+  primitives, with scale/AXPY explicitly reported as exact-tier operations.
+- Throughput elementwise broadcasting for views up to rank four. Exact-mode
+  arithmetic currently requires matching contiguous shapes.
+
+The adapter exposes selected kernel tiers and the throughput GEMM accuracy
+contract. It rejects unsupported operations/layouts before submission and never
+performs implicit CPU numerical fallback. Explicit host readbacks may unpack a
+view from its allocation on the host.
+
+This subset does not yet support reductions, NN activations/norms/attention,
+optimizers, normal initialization, batched GEMM, or FP16/BF16 computation through
+NNJava. Those gates must pass before claiming full model inference or training.
+Per-step arenas, replay, paged caches, and sampling are subsequent integration work.
+
+Native runtimes are supplied by the application. DynamisGPU 1.14.1's native jars
+export provider constructors but do not register `GpuProvider` services; the adapter
+supports both service providers and these published constructors. On the module
+path, resolve the chosen native module explicitly and grant its native access.
+The standalone GPU consumer demonstrates Metal selection without a CPU backend.
+
+The published GPU shader resource packages also need qualified JPMS opens for
+`KernelLibrary` in `org.dynamisengine.gpu.api`. The verification runner supplies
+these flags for Vectrix's `compute.kernels` and DynamisGPU's `primitives.kernels`
+and `primitives.metal` packages. Class-path execution does not require these opens.
+This release integration detail should be addressed upstream in future descriptors.
+
+## Verification evidence
+
+The [2026-11-27 verification record](evidence/modular-verification-2026-11-27.json)
+reports 66 passing tests: 59 CPU/core checks, two portable completion checks, and
+five Metal hardware tests exercising both modes. Scalar and SIMD reactors pass;
+standalone training, model-only JPMS, and both GPU JPMS consumers pass. JMH
+packaging/listing also passes. No new model-throughput benchmark is claimed.
+
+## Verification commands
+
+```sh
+mvn clean install                         # CPU modules, tests, examples, BOM
+mvn -Psimd clean verify                   # SIMD CPU configuration
+mvn -Pgpu clean verify                    # GPU compilation and portable completion tests
+mvn -Pgpu,metal clean install             # required Metal hardware checks
+mvn -Pgpu,vulkan clean verify             # required Vulkan hardware checks
+mvn -Pbenchmarks -DskipTests package       # isolated JMH artifact
+mvn -f examples/pom.xml verify            # standalone CPU consumers
+mvn -f examples/pom.xml -Pgpu verify      # also compile standalone GPU consumer
+python3 tools/verify_module_consumers.py --gpu-metal
+```
+
+The final command runs the model-only consumer on the module path, then checks
+GPU provider discovery and GEMM in both modes. Without `--gpu-metal`, it runs only
+the CPU inference consumer. Hardware profiles fail on absent devices; portable
+GPU builds skip hardware tests explicitly. Local Metal evidence does not establish
+Vulkan/MoltenVK coverage or real-model throughput.

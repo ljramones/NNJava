@@ -1,0 +1,120 @@
+{
+  "date": "2026-11-27",
+  "jdk": "25.0.4",
+  "vectrix": "4.1.0",
+  "dynamisgpu": "1.14.1",
+  "platform": "macOS arm64, Apple M4 Max",
+  "tests": {
+    "org.dynamisengine.nn.backend.gpu.GpuCompletionTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.backend.gpu.GpuHardwareTest": {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ProviderIsolationTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ShapeAndLayoutTest": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.AutogradTest": {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.CpuTrainingAndStateTest": {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ExecutionContextTest": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ExpandedCpuTest": {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.KernelContractsTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.LegacyArchiveCompatibilityTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.LowPrecisionStorageTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.ProviderDiscoveryTest": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.TensorOperationsTest": {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.TrainingTest": {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "org.dynamisengine.nn.TransformerTest": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "checks": {
+    "scalar_reactor": "passed",
+    "simd_reactor_and_benchmark_packaging": "passed",
+    "metal_hardware": "passed",
+    "legacy_checkpoint_byte_identical_round_trip": "passed",
+    "standalone_training_consumer": "passed",
+    "model_only_named_module_consumer": "passed",
+    "exact_and_throughput_named_module_gpu_consumers": "passed",
+    "jmh_packaging_and_listing": "passed"
+  },
+  "limits": [
+    "Vulkan and MoltenVK were not exercised in this NNJava verification.",
+    "GPU coverage is an initial storage/arithmetic/GEMM subset; complete NN/LLM inference and training remain pending.",
+    "No real-model throughput claim is made."
+  ],
+  "totals": {
+    "tests": 66,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+}

@@ -1,8 +1,16 @@
 # Tensor and Backend Contract
 
-This proposed contract lets network code run through Vectrix on the CPU and
-through DynamisGPU on supported GPUs. Tensor operations define mathematical
-behavior; adapters implement that behavior with device-specific kernels.
+This contract separates network semantics from numerical execution. The current
+CPU implementation uses Vectrix 4.1.0 (EXEC-01, implemented). On the
+GPU, NNJava's adapter composes three upstream pieces:
+- vectrix-gpu's exact twins;
+- DynamisGPU's throughput primitives;
+- DynamisGPU's runtime.
+
+NNJava adapters map tensor operations and gradients onto those numerical APIs;
+[numerical coverage](numerical-coverage.md) maps each operation to its kernels.
+The [module design](modules.md) and [integration gate](gpu-integration.md) govern
+the next extraction and dependency upgrade.
 
 ## Tensor metadata and layout
 
@@ -17,7 +25,9 @@ behavior; adapters implement that behavior with device-specific kernels.
 - Broadcast views use zero strides and are read-only. Initially support
   nonnegative strides; defer reversed views until their indexing contract exists.
 - Initial data types are FP32, INT32, and BOOL. Arithmetic promotion is explicit;
-  integer indices and masks do not acquire gradients.
+  integer indices and masks do not acquire gradients. `DType` and the SPI also
+  carry FP16 and BF16 as storage types from the start (the throughput GPU kernels
+  take them), even before any CPU arithmetic in them exists.
 - Operations require operands on the same device. Transfers are explicit. The
   initial device migration API operates between recorded training steps.
 
@@ -35,11 +45,11 @@ Keep this SPI separate from the user-facing tensor API:
 | --- | --- |
 | `BackendProvider` | Discover available devices and create backend contexts without initializing unused native backends. |
 | `BackendCapabilities` | Report supported operation, data type, layout, size, and numerical-mode combinations. |
-| `Buffer` | Own opaque device storage with byte size, alignment, device identity, and release semantics. |
+| `Buffer` | Own opaque device storage with byte size, alignment, device identity, and release semantics. On the GPU, a `GpuBuffer` from DynamisGPU (pooled by the device), or a `GpuArena` range for per-step temporaries. |
 | `KernelRegistry` | Resolve typed operation requests to direct kernels or registered same-device compositions. |
 | `KernelCall` | Describe operation identity, input/output layouts, attributes, and overwrite/accumulate output semantics. |
 | `ExecutionContext` | Own an ordered execution stream, scratch resources, allocation policy, and error state. |
-| `Completion` | Report completion or failure and support explicit waiting. |
+| `Completion` | Report completion or failure and support explicit waiting. On the GPU, wraps `GpuSubmission` (`await(Duration)`) and `GpuFence`. |
 
 The framework infers shapes and validates structural arguments before execution.
 The adapter receives validated layouts and preallocated outputs. Kernel support
@@ -54,9 +64,10 @@ transfers.
 ## Required operation groups
 
 The planned CPU coverage includes the following groups. The
-[README](../README.md#implemented-first-slice) lists the currently implemented
+[README](../README.md#implemented-cpu-support) lists the currently implemented
 subset. A GPU training backend must implement the corresponding operations or
-same-device compositions for the features it advertises.
+same-device compositions for the features it advertises. The per-operation GPU
+mapping is in [numerical coverage](numerical-coverage.md).
 
 | Group | Required operations | Vectrix integration |
 | --- | --- | --- |
@@ -102,6 +113,14 @@ domain. Maximum backward routes its gradient to that selected entry. Maximum
 propagates NaN, and argmax selects the first NaN when one is present. Keep these
 rules consistent across CPU reductions and GPU reduction trees.
 
+The upstream kernels do not all share these rules yet:
+- **Fully masked rows:** Vectrix's `Softmax` returns NaN for a row of all -inf, so
+  the CPU adapter applies the zero rule itself. The throughput `Softmax` gives
+  zeros only under its built-in causal mask.
+- **The other rules:** max/argmax ties, the cross-entropy mean, and the GELU form are
+  listed in [numerical coverage](numerical-coverage.md#semantics-to-align). Test each
+  rule on every tier before that tier advertises the operation.
+
 Check dimensions, offsets, allocation ranges, and scratch requirements before
 enqueueing. Data-dependent errors such as invalid embedding indices must surface
 through completion without permitting out-of-range memory access. A failed step
@@ -113,6 +132,10 @@ CPU calls can complete synchronously; GPU calls can enqueue work. In both cases,
 an execution context preserves operation order and inserts the dependencies needed
 for its inputs and outputs. Host reads and checkpoint snapshots wait for relevant
 work. An explicit synchronization method reports deferred execution errors.
+
+Accumulate in fixed orders on every device. Scatter-add, gradient reduction and
+other accumulations must not use float atomics, so results never depend on GPU
+scheduling; both upstream GPU libraries already follow this rule.
 
 Start with one ordered queue per context. Any later cross-queue sharing requires
 explicit completion dependencies and resource visibility rules. Each concurrent
@@ -159,12 +182,15 @@ cost separately from execution time.
 
 ## Dependency integration
 
-Target the Vectrix 3.0 release line and pin an exact released version when the build
-is introduced. The operation mapping above follows the current public BLAS and
-neural-kernel APIs; check it against the final 3.0 artifact.
+The build pins Vectrix 4.1.0 through `vectrix-core` and `vectrix-ml`, and the
+optional GPU adapter pins DynamisGPU 1.14.1. CPU correctness/gradient tests pass
+in scalar and SIMD configurations. The [migration guide](module-migration.md)
+distinguishes implemented GPU operations from this broader target contract.
 
-Select either Vectrix's plain artifact or its `simd` classifier for a deployment.
-The SIMD path needs `--add-modules jdk.incubator.vector`; keep a scalar validation
-configuration too. The optional DynamisGPU adapter translates these operation
-contracts to the generic compute services described in the
-[GPU rework guidance](dynamisgpu-rework.md).
+Select either the plain jars or their `simd` classifier for a deployment. In 4.0
+the classifier is per jar, so use it on both. The SIMD path needs
+`--add-modules jdk.incubator.vector`; keep a scalar validation configuration too.
+
+The GPU adapter's storage, completion, distribution and version rules are in
+[GPU integration](gpu-integration.md). The original
+[GPU rework request](history/dynamisgpu-rework.md) is historical context.

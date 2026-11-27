@@ -1,61 +1,74 @@
-# Neural Networks
+# NNJava
 
-A Java 25 deep-learning framework for building and training neural networks and
-LLMs. The first implementation runs on the CPU through Vectrix. The planned
-DynamisGPU adapter will use the same tensor operation boundary for Metal and Vulkan.
-
-Applications define their models in separate repositories. This library supplies
-tensors, automatic differentiation, composable layers, transformer primitives,
-training utilities, and portable parameter persistence.
+A Java 25 library for constructing, training, and executing neural networks and
+transformers. The CPU implementation uses your Vectrix library for numerical
+kernels. Applications choose their architectures, weights, vocabulary, data, and
+training recipes in separate projects. Planned LLM support includes reusable
+generation, optional tokenizers, weight loading, pretraining, and fine-tuning.
 
 ## Build and run
 
-Requirements: JDK 25+, Maven, and the Vectrix artifact available through Maven.
+Requirements: JDK 25+, Maven, and Vectrix available through Maven.
 
-```bash
-mvn test                    # Numerical, gradient, ownership, and training tests
-mvn clean verify            # Clean build, tests, and library JAR
-mvn -q compile exec:java     # Train the public-API linear regression example
+```sh
+mvn clean verify                              # CPU correctness and integration tests
+mvn -Psimd test                               # Vectrix SIMD configuration
+mvn install                                   # Install modules, CPU starter, and BOM
+mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=--list
+mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=linear-regression
+mvn -f examples/pom.xml verify                 # Independent training and inference consumers
+python3 tools/verify_module_consumers.py       # Model-only consumer on the module path
 ```
 
-Coordinates: `org.dynamisengine:neuralnetworks:0.1.0-SNAPSHOT`. Sources use
-`src/main/java/org/dynamisengine/nn`; tests use `src/test/java`.
+CPU starter: `org.dynamisengine:nnjava:0.1.0-SNAPSHOT`. The previous
+`neuralnetworks` coordinate remains a compatibility starter. Use `nnjava-bom` to
+select capability modules. Packages live under `org.dynamisengine.nn`; sources use
+standard Maven layouts inside each module. See the [module migration guide](docs/module-migration.md)
+for JPMS names, experimental import changes, and model-only consumption.
 
-Vectrix 3.0 remains the dependency target. The bootstrap build pins **2.6.0**
-because the inspected checkout and local Maven cache still provide that version.
-After 3.0 is released and available, run `mvn -Dvectrix.version=3.0.0 clean verify`
-to validate the upgrade. The 3.0 artifact has not yet been tested here. Maven
-resolves the dependency by coordinates, with no absolute source-tree dependency.
+The build pins **Vectrix 4.1.0**, using `vectrix-core` and `vectrix-ml` from the
+published Maven release bundle. The optional GPU adapter uses `vectrix-gpu` and
+**DynamisGPU 1.14.1**. There is no absolute source-tree dependency. The `simd`
+profile selects both CPU classifiers and excludes the transitive plain core jar;
+test JVMs enable `jdk.incubator.vector`.
 
-## Implemented first slice
+The framework is a Maven reactor with explicit JPMS production modules, an
+examples module, integration tests, and optional benchmarks/GPU adapters. The
+[roadmap](docs/roadmap.md), [module design](docs/modules.md),
+[fluent builder proposal](docs/fluent-builders.md), and
+[examples catalog](docs/examples.md) describe implemented and planned capabilities.
 
-- FP32, INT32, and BOOL storage; immutable shapes; checked sizes; row-major
-  layouts; reshape, transpose, and read-only broadcast views.
-- FP32 add/subtract/multiply/scale, total sum/mean, broadcast reduction, copying,
-  and rank-two matrix multiplication through Vectrix GEMM.
-- First-order reverse-mode differentiation with branching, shared-input
-  accumulation, broadcast gradients, and saved-storage mutation protection.
-- Named parameters, a composable `Module`/`UnaryModule` contract, `Linear`,
-  mean-squared error, and SGD with deduplication of shared parameters.
-- Backend-neutral operation requests and ordered completion handling, verified
-  with a deferred backend that also exercises failure cleanup.
+## Implemented CPU support
 
-The regression example learns `y = 3x + 2`. It demonstrates library composition;
-application-specific networks and LLM architectures belong in their own repos.
+| Area | Components |
+| --- | --- |
+| Tensors | FP32/INT32/BOOL plus FP16/BF16 raw storage, checked shapes, views, positive-step slices, permutation, broadcasting, gather/scatter, concatenation, and casts. |
+| Mathematics | Elementwise functions, masks/selection, total/axis reductions, vector norms, and broadcast batched Vectrix GEMM. |
+| Differentiation | First-order reverse mode, shared-input accumulation, broadcast/index gradients, saved-storage mutation checks, and explicit lifetime handling. |
+| Networks | Recursive modules and parameters, Sequential, Linear, activations, embeddings, dropout, LayerNorm/RMSNorm, residuals, and tied weights. |
+| Training | MSE/cross-entropy, momentum/Nesterov SGD, AdamW, groups, schedules, finite checks, clipping, accuracy, datasets, and deterministic batching. |
+| Persistence | Named state, aliases, module configuration/modes, optimizer slots/counters, random counters, loader metadata, CRC validation, and atomic replacement. |
+| Transformers | Scaled/grouped-query attention, causal/padding masks, rotary positions, SwiGLU, multi-head projections, and inference KV caches. |
 
-## API usage and ownership
+Tests include independent numerical references, gradient checks, nonlinear XOR
+training, caller-defined transformer training, exact checkpoint resume, cached
+attention parity, and a deferred backend for ordering/failure cleanup.
+
+## Compose a network
 
 ```java
 try (var context = ExecutionContext.cpu();
-        var model = new Linear(context, 1, 1, 42);
-        var optimizer = new Sgd(model.namedParameters().values(), 0.1f);
-        var x = context.tensor(new float[] {-1, 0, 1}, Shape.of(3, 1));
-        var y = context.tensor(new float[] {-1, 2, 5}, Shape.of(3, 1))) {
-    for (int step = 0; step < 100; step++) {
+        var model = new Sequential(context,
+                new Linear(context, 2, 8, 11), Activation.tanh(context),
+                new Linear(context, 8, 2, 12));
+        var optimizer = new AdamW(model.namedParameters(), 0.03f);
+        var x = context.tensor(new float[] {0,0, 0,1, 1,0, 1,1}, Shape.of(4, 2));
+        var labels = context.tensor(new int[] {0, 1, 1, 0}, Shape.of(4))) {
+    for (int step = 0; step < 250; step++) {
         optimizer.zeroGrad();
         try (var tape = context.gradientTape();
-                var prediction = model.forward(x);
-                var loss = Losses.meanSquaredError(prediction, y)) {
+                var logits = model.forward(x);
+                var loss = Losses.crossEntropy(logits, labels)) {
             tape.backward(loss);
         }
         optimizer.step();
@@ -63,37 +76,67 @@ try (var context = ExecutionContext.cpu();
 }
 ```
 
-See [LinearRegressionExample](src/main/java/org/dynamisengine/nn/examples/LinearRegressionExample.java)
-for the complete imports and executable example.
+See the [complete standalone consumer](examples/consumer/src/main/java/example/LibraryConsumer.java)
+for public imports and a transformer assembled outside the library's source tree.
+`AbstractModule` supplies custom module registration and ownership. Each returned
+tensor is an owned handle; close it or retain another handle explicitly. Contexts
+are thread-confined, and inference mode is independent of gradient recording.
 
-Contexts are currently thread-confined and own backend resources. Close returned
-tensor handles; `retain()` and `Parameter.value()` return additional owned handles.
-Views, saved activations, and pending operations retain storage independently.
-Host reads return copies and await pending work. Closing the context drains its
-queue and invalidates remaining handles.
+## Benchmarks and CI
 
-A gradient tape records operations in its scope, runs backward once, and releases
-saved values. Gradients accumulate on trainable leaves until cleared. Operations
-outside a tape run without recording; evaluation mode is independent of gradient
-tracking. Updates run after backward. Internal `TensorAccess` methods are runtime
-implementation details.
+```sh
+mvn -Pbenchmarks -DskipTests package
+java -jar nnjava-benchmarks/target/benchmarks.jar CoreBenchmark -prof gc
+```
 
-## Planning documents
+JMH measures public-API execution/readback and training-step cost, including
+allocation. Initial measurements and their limits belong in
+[CPU verification evidence](docs/cpu-verification.md). CPU CI installs the published Vectrix bundle, checks scalar/SIMD execution, and
+runs standalone consumers. Portable GPU CI compiles the optional adapter against
+the published DynamisGPU bundle and checks completion contracts. Hosted CI results are separate from local verification.
 
-- [Framework architecture](docs/architecture.md): scope, public abstractions,
-  composition, and repository boundaries.
-- [Tensor and backend contract](docs/backend-contract.md): operation semantics,
-  memory ownership, execution, and CPU/GPU requirements.
-- [DynamisGPU rework guidance](docs/dynamisgpu-rework.md): general compute APIs,
-  native Metal integration, Vulkan changes, and migration steps.
-- [DynamisGPU execution commission](docs/dynamisgpu-commission.md): implementation
-  instructions and acceptance criteria for the session working in DynamisGPU.
-- [Implementation roadmap](docs/roadmap.md): delivery stages and acceptance criteria.
+## GPU integration status
 
-## Remaining scope
+The optional GPU foundation has two modes:
+- **Exact:** vectrix-gpu's twins of the Vectrix kernels, bit-identical to the CPU.
+- **Throughput:** DynamisGPU's primitives, with published accuracy contracts.
 
-The API is experimental. Batched matrix multiplication, axis reductions,
-slicing/gather, activations, normalization, attention, additional optimizers,
-checkpoints, and real GPU execution remain on the roadmap. Nested tapes,
-higher-order gradients, graph retention, and implicit device transfers are not
-implemented. Planning documents describe the larger target beyond this first slice.
+Both run on DynamisGPU's runtime (Metal and Vulkan). NNJava owns tensor/model
+semantics and the adapters. Typed storage, an initial FP32 arithmetic subset, and
+rank-two GEMM have been exercised locally on Metal in both modes. Full NN/LLM
+inference and training require further operation coverage; Vulkan execution is not
+yet verified here. See the [implemented capability limits](docs/module-migration.md#initial-gpu-capabilities).
+
+```sh
+mvn -Pgpu,metal clean install
+mvn -f examples/pom.xml -Pgpu verify
+python3 tools/verify_module_consumers.py --gpu-metal
+```
+
+The [integration plan](docs/gpu-integration.md) records
+ownership, distribution and the remaining gates, and
+[numerical coverage](docs/numerical-coverage.md) maps every operation to its
+kernels and lists the upstream requests. CPU users have no native GPU dependencies.
+
+## Plans and guides
+
+- [CPU API guide](docs/cpu-guide.md)
+- [Implemented module migration and GPU foundation](docs/module-migration.md)
+- [Implementation roadmap and status](docs/roadmap.md)
+- [LLM capabilities and delivery milestones](docs/llm-roadmap.md)
+- [Multi-module design](docs/modules.md)
+- [Fluent builder proposal](docs/fluent-builders.md)
+- [Classical architecture examples](docs/examples.md)
+- [Framework architecture](docs/architecture.md)
+- [Tensor and backend contract](docs/backend-contract.md)
+- [GPU integration plan](docs/gpu-integration.md)
+- [Numerical coverage and upstream requests](docs/numerical-coverage.md)
+- [Design review of 2026-11-25](docs/design-review-2026-11-25.md)
+- History: the original [DynamisGPU rework plan](docs/history/dynamisgpu-rework.md)
+  and [execution commission](docs/history/dynamisgpu-commission.md)
+
+Convolution/pooling, RNN/LSTM/GRU layers, fluent creation APIs, and their runnable
+architecture examples are planned in the roadmap. Mixed precision,
+nested/higher-order differentiation, graph retention, distributed execution, and
+further performance work remain later extensions. A production LLM and its
+application behavior belong in the downstream model repository.

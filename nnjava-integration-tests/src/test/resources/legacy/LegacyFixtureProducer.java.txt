@@ -1,0 +1,16 @@
+import java.nio.file.Path;
+import java.util.Map;
+import org.dynamisengine.nn.io.*;
+import org.dynamisengine.nn.training.OptimizerState;
+import org.dynamisengine.nn.tensor.Shape;
+public class LegacyFixtureProducer {
+    public static void main(String[] args) throws Exception {
+        var tensors = Map.of("weights", new TensorSnapshot(Shape.of(2), new float[] {1.25f, -2.5f}),
+                "indices", new TensorSnapshot(Shape.of(2), new int[] {7, -3}),
+                "mask", new TensorSnapshot(Shape.of(2), new boolean[] {true, false}));
+        var model = new StateDict(tensors, Map.of("tied", "weights"), Map.of("dropout.counter", 17L), Map.of("format", "legacy"));
+        var optimizer = new OptimizerState("fixture", Map.of("rate", "0.01"), Map.of("steps", 9L),
+                Map.of("momentum", new TensorSnapshot(Shape.of(2), new float[] {0.5f, -0.25f})));
+        Checkpoint.write(Path.of(args[0]), new Checkpoint.Loaded(model, optimizer, Map.of("source", "monolithic-v1")));
+    }
+}

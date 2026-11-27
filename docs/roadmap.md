@@ -1,74 +1,204 @@
-# Neural Network Framework Implementation Roadmap
+# NNJava Feature Roadmap
 
-Build reusable framework capabilities on Java 25. Use Vectrix 3.0 for the CPU
-implementation and the revised DynamisGPU compute runtime for GPU execution.
-Application-specific model development belongs in downstream repositories.
+NNJava is a Java 25 framework for creating neural networks and language models in
+other applications. Its direction is a multi-module library with fluent builders,
+reusable model definitions, and explicit execution/training lifecycles. LLM support
+covers construction, loading, generation, pretraining, adaptation, and evaluation.
+Applications choose their model, weights, vocabulary, data, recipes, and behavior;
+the library supplies reusable mechanisms, including optional tokenizers.
 
-## Current implementation
+This is a living proposal. Feature IDs stay stable as priorities change; new ideas
+enter the backlog before they become implementation commitments.
 
-The first CPU slice now includes Maven/JDK 25, typed storage and views, basic
-elementwise operations, total reductions, rank-two Vectrix GEMM, a gradient tape,
-named parameters, a linear layer, MSE, and plain SGD. A deferred test backend
-exercises ordered completion, retained resources, and asynchronous failures.
+## Current baseline and dependency targets
 
-The build currently uses Vectrix 2.6.0 as a bootstrap dependency while 3.0 is being
-prepared; the version is configurable. The exact 3.0 upgrade and the broader
-operation coverage in F1/F2 remain to be completed. See the
-[README](../README.md) for runnable commands and the supported API subset.
+The modular CPU implementation supplies tensors, indexing, batched
+GEMM, first-order autograd, neural functions, recursive modules, optimizers,
+checkpoint/resume, data loading, and transformer primitives. The last verified
+baseline passed 54 tests in scalar and SIMD configurations, with a standalone
+consumer and initial JMH evidence. That evidence describes the existing CPU build,
+not the future module or builder design.
 
-## Delivery stages
+The build now pins **Vectrix 4.1.0** and **DynamisGPU 1.14.1**. Implementation
+resumed on 2026-11-27. Module extraction, provider discovery, model/training archive
+separation, CPU/compatibility starters, BOM, examples, and benchmark isolation are
+implemented. An optional GPU foundation supplies storage, selected FP32 arithmetic,
+and rank-two GEMM in exact and throughput modes; full model execution is pending.
 
-| Stage | Deliverables | Acceptance criteria |
-| --- | --- | --- |
-| F0 Contracts and build | Finalize package/artifact names; introduce Maven, JUnit 5, backend SPI, layout types, and an exact Vectrix 3.0.x dependency. | A clean checkout builds on JDK 25; CPU dependencies resolve by coordinates; tensor shape and backend-lifetime contracts have executable tests. |
-| F1 CPU tensors | Array-backed storage, views, indexing, broadcasting, elementwise operations, reductions, and batched matrix multiplication. | Numerical reference checks pass for contiguous and supported strided layouts, empty shapes, invalid arguments, and output aliasing. |
-| F2 Differentiation and modules | Gradient tape, backward rules, named/shared parameters, module composition, linear layers, embeddings, and activations. | Finite-difference checks pass; branching graphs, repeated indices, broadcast gradients, and tied parameters accumulate correctly; a custom module uses public APIs alone. |
-| F3 Training and state | Losses, optimizers, parameter groups, clipping, schedules, batching interfaces, evaluation, and checkpoints. | A small example learns; optimizer updates match numerical fixtures; checkpoint/resume reproduces subsequent CPU steps with a fixed configuration and saved data position. |
-| F4 Transformer primitives | Normalization, masks, attention, RoPE, residual/gated components, and KV-cache storage. | Causal and padding semantics pass; an example assembled from components has verified gradients; cached and full-sequence outputs agree within the numerical contract. |
-| F5 GPU integration | Optional DynamisGPU adapter, Metal/Vulkan kernel artifacts, required primitive mappings, and device-aware tests. | Supported backends pass CPU/GPU numerical and gradient checks; a complete training step keeps intermediate state on-device; pending work retains its allocations. |
-| F6 Performance and release | JMH and GPU benchmarks, allocation tuning, documentation, deployment examples, and compatibility policy. | Measured baselines exist for training and inference primitives; scalar/SIMD CPU and supported GPU configurations are documented and verified. |
+The earlier [design review](design-review-2026-11-25.md) explains the upstream
+contracts. [Module migration](module-migration.md) documents implemented behavior,
+experimental import changes, verification commands, and GPU capability limits.
+The original 54 CPU tests pass on Vectrix 4.1.0; expanded tests cover isolation,
+low-precision storage, legacy checkpoints, and real Metal execution. DynamisGPU
+1.15 optimization work is outside the current pinned baseline and is not needed
+for this implementation slice.
 
-F4 and F5 both build on the shared tensor and differentiation contracts. GPU
-runtime development can begin at F0 using the
-[DynamisGPU migration stages](dynamisgpu-rework.md#migration-and-acceptance-stages).
-Full transformer GPU validation follows implementation of the relevant F4
-semantics. A CPU framework release can ship before GPU support; declare the
-feature set of each release explicitly.
+## Repository responsibilities
 
-## First implementation slice
+| Component | Owns |
+| --- | --- |
+| NNJava | Tensor/model semantics, differentiation, builders, layers, generation, optional tokenization, training/adaptation, evaluation, data contracts, weight formats, persistence, and numerical-provider adapters. |
+| Vectrix and vectrix-gpu | CPU mathematics and kernels; exact (bit-identical) GPU twins of them. |
+| DynamisGPU | The GPU runtime, and throughput GPU kernels (`dynamis-gpu-primitives`) with published accuracy contracts. |
+| Consuming application | Its model/weight choices, tokenizer configuration and vocabulary, data, prompt/chat formats, recipes, explicit model-family mappings, and application behavior. |
 
-Keep the first slice narrow enough to prove the architecture:
+NNJava reuses both GPU kernel libraries:
 
-1. Establish Maven/JDK 25 and pin the released Vectrix 3.0.x artifact.
-2. Implement FP32/INT32/BOOL metadata, CPU allocation, tensor handles, views, and
-   an execution context.
-3. Add fill/copy, add/multiply, sum, reshape/transpose, and matrix multiplication.
-4. Implement reverse-mode differentiation for these operations, including a
-   branching graph and broadcast reduction.
-5. Demonstrate a linear layer and squared-error update through the public API.
-6. Use the same operation descriptions in a mock asynchronous backend to verify
-   completion and ownership before introducing native GPU execution.
+- vectrix-gpu for an exact mode;
+- DynamisGPU's primitives for a throughput mode.
 
-This example verifies framework composition; its particular network is test and
-example material. Keep public APIs useful for other architectures.
+New numerical requirements become upstream kernel requests (IDs G-E* and G-T* in
+[numerical coverage](numerical-coverage.md)), never NNJava shaders.
 
-## Validation strategy
+## Approach and implementation order
 
-Use JUnit 5 for contract, numerical, gradient, and checkpoint tests. Maintain
-small independently computed fixtures and double-precision finite-difference
-references where useful. Pair numerical checks with integration tests that detect
-missing gradient paths, accidental parameter duplication, and resource leaks.
+| Phase | Features | Depends on | Completion gate |
+| --- | --- | --- | --- |
+| R0 Public design | Module boundaries, model-definition schema, builder conventions, ownership, extension points, and error reporting. | Current baseline | Reviewable NN, transformer, and training API examples with explicit lifecycle rules. |
+| R1 Module extraction | Acyclic Maven modules, provider discovery, state/persistence separation, integration tests, a first-class examples module, and benchmark isolation. | R0 | Existing behavior/tests and standalone consumer pass through packaged modules; CPU use has no GPU dependency. |
+| R2 Fluent NN creation | Layer builders, sequential definitions, deterministic naming/seeds, shape inference, initialization choices, and the MLP example. | R1 | Builder-created nonlinear networks match direct composition and produce actionable validation errors. |
+| R3 Training and persistence ergonomics | Trainer, data/optimizer/schedule builders, callbacks, evaluation, checkpoints, early stopping/cancellation, and autoencoder examples. | R2 | A normal NN can train, evaluate, save, reload, and resume through the public fluent API. |
+| R4 Classical NN families | CNN/pooling and recurrent primitives, RNN/LSTM/GRU state/sequence APIs, branch/residual builders, and runnable classical examples. | R2/R3 | CNN, RNN, LSTM, and GRU examples build/train through public APIs with derivative, state, and save/load checks. |
+| R5 LLM capabilities | Configurable transformers; loading/tokenization; generation and paged/batched inference; pretraining, SFT and LoRA; evaluation; later precision, architecture, and objective extensions. | R1/R2; R3 for training; R6 for GPU paths | L1-L6 in the dedicated LLM roadmap: real-model inference first, then separately verified training and adaptation, with broader features delivered independently. |
+| R6 Published numerical stack | EXEC-01 (Vectrix 4.1.0 CPU migration) first and independently; then GPU storage/completion, exact mode on vectrix-gpu, throughput mode on DynamisGPU primitives. | CPU migration verifies the published target; GPU adapter needs R1 provider SPI and confirmed operation coverage. | Supported exact-mode compositions match the CPU under the documented subnormal policy; throughput kernels meet their contracts and model-level checks; no hidden CPU fallback. |
+| R7 Release and performance | BOM/starters, compatibility policy, API guides, CI/platform matrix, and measured allocation/throughput improvements. | Apply throughout; release after selected scope passes | A clean consumer resolves a coherent release and its documented examples/checkpoints work. |
 
-JMH measures CPU operations and allocation. GPU benchmarks distinguish submission
-overhead, transfers, execution time, and end-to-end work. Include a range of batch,
-sequence, and feature sizes; record backend, device, precision, numerical mode,
-and software versions. Choose performance targets after collecting baselines.
+R4 and R5 can progress independently once their
+prerequisites are met. EXEC-01 comes before GPU dependencies because Vectrix 3.x
+and 4.x cannot share a build. The 4.1.0 migration and R1 provider SPI are now
+implemented; GPU operation coverage is the next integration gate. The first LLM GPU
+milestone is a real loaded model with distinct weights, an output head, sampling,
+and a growing cache. Training has its own correctness/performance milestone.
+Neither LLM workstream waits for every classical architecture example. No delivery
+dates are assigned until scope and dependencies are confirmed.
 
-## Later capabilities
+## Modules and planned extensions
 
-After the core contracts are stable, add convolution/pooling modules, mixed
-precision with loss scaling, low-precision storage and quantization, activation
-checkpointing, compiler/fusion optimizations, and additional data adapters.
-Distributed training and advanced scheduling need separate designs. Downstream
-LLM repositories can implement architecture-specific loaders and training recipes
-using these extension points.
+The initial production boundaries are core, Vectrix CPU backend, NN/layers,
+transformer/LM composition, data, model IO, and training. Add the optional GPU
+backend (exact and throughput modes) once R1's provider SPI exists. A convenience starter and BOM
+make consumption simple. Development modules cover integration tests, examples,
+and benchmarks. `nnjava-examples` is a first-class reactor module, with the
+[classical architecture catalog](examples.md) covering MLP, CNN, RNN, LSTM, GRU,
+autoencoder, residual, and transformer examples.
+
+Add `nnjava-generation` for token-based inference orchestration and optional
+`nnjava-tokenizers` for text/token conversion. Neither requires training; generation
+accepts token IDs without a tokenizer dependency. Introduce these modules with
+their implementations rather than empty placeholders.
+
+The [multi-module design](modules.md) defines responsibilities and dependency
+arrows, including two necessary cuts: core must stop importing a concrete backend,
+and optimizer snapshots/full checkpoints must stop creating training/IO cycles.
+Keep tensor/Ops/autograd/runtime together initially because their current coupling
+would make an immediate fine-grained split costly.
+
+## Fluent API direction
+
+Builders should make the common path short while retaining lower-level APIs:
+
+- `NeuralNetwork.builder()` composes named layers and infers intermediate shapes.
+- `CausalLanguageModel.builder()` composes configurable transformer components.
+- Layer and optimizer builders expose advanced options through typed settings.
+- `Trainer.builder()` orchestrates training without replacing explicit loops.
+- Definitions can be built, inspected, saved, and reused without allocating model
+  weights until a context is selected.
+
+The [fluent builder proposal](fluent-builders.md) gives example syntax and
+validation/ownership rules. Those examples are design proposals, not implemented
+entry points.
+
+## LLM capability track
+
+The [LLM roadmap](llm-roadmap.md) makes language-model support a full feature track.
+Its order is configurable models (L1), real-model inference (L2), pretraining (L3),
+full/LoRA fine-tuning (L4), scale/precision (L5), and broader architectures/objectives
+(L6). Each milestone has an observable acceptance task. The first inference run
+needs one validated format/tokenizer/model path, not every planned provider.
+
+The generic generation engine, tokenizer interfaces, format readers, adaptation
+mechanisms, and evaluation tools belong in this library. Applications retain their
+model choices, content, templates, recipes, and product behavior.
+
+## Feature catalog
+
+Statuses describe individual capabilities, so a working primitive does not imply
+its planned builder or orchestration API already exists.
+
+| ID | Feature | Current status | Priority and phase |
+| --- | --- | --- | --- |
+| MOD-01 | Module extraction and provider SPI | Implemented with JPMS and class-path service registration | P0 R1 |
+| MOD-02 | Neutral state contracts and model/training IO split | Implemented; legacy version-1 archive compatibility tested | P0 R1 |
+| API-01 | Immutable model definitions and configuration schemas | Planned | P0 R0/R2 |
+| API-02 | Layer and sequential NN builders | Planned | P0 R2 |
+| API-03 | Branched graph and residual/merge builders | Residual primitive exists; graph builder planned | P1 R4 |
+| NN-01 | Dense/activation/embedding/dropout/norm layers | CPU primitives implemented; builders planned | P0 R2 |
+| NN-02 | Initialization, parameter freezing, and sharing APIs | Basic initialization/sharing exist; extensions planned | P1 R2/R4 |
+| NN-03 | Convolution, pooling, and vision-oriented layers | Planned for CNN examples | P1 R4 |
+| NN-04 | Vanilla RNN, LSTM, and GRU cells/layers with explicit state | Planned for recurrent examples | P1 R4 |
+| TRAIN-01 | Optimizers, groups, schedules, clipping, and losses | CPU primitives implemented; fluent configuration planned | P0 R3 |
+| TRAIN-02 | Trainer, callbacks, validation, early stopping, cancellation | Planned | P1 R3 |
+| DATA-01 | Deterministic batching and loader state | Basic implementation exists; builders planned | P0 R3 |
+| DATA-02 | Sequence padding/packing, length-aware batches, stream adapters | Partial mask support; document-boundary packing and resumable token streams planned | P1 R3/R5 L3 |
+| IO-01 | Definition/model save/load and schema migration | State/checkpoint support exists; definition codec planned | P0 R2/R3 |
+| IO-02 | Full reproducible training resume | CPU implementation exists; module/builder integration planned | P0 R3 |
+| IO-03 | Extensible external tensor archive codecs | Planned codec extension points; explicit model-family mappings stay downstream | P2 R5 |
+| IO-04 | GGUF container reader: neutral tensor/metadata/quantized-block descriptors | Parser belongs in NNJava; provider materialization reuses upstream block formats | P1 R5 L2 with EXEC-05 |
+| IO-05 | Safetensors and supported sharded weight indexes; bounded loading | Planned; backend-neutral parsing | P1 R5 L2 |
+| LM-01 | Configurable attention, gated blocks, masks, norms, residuals, tied weights | CPU primitives implemented; composition/builder extensions planned | P0 R5 L1 |
+| LM-02 | Decoder and causal-language-model definitions/builders | Planned; inspectable/versioned architecture settings | P0 R5 L1 |
+| LM-03 | Prefill/decode sessions and cache lifecycle | KV cache primitive exists; session facade planned | P0 R5 L2 |
+| LM-04 | Encoder/encoder-decoder, cross-attention, pooling/readout composition | Planned architecture expansion | P2 R5 L6 |
+| LM-05 | LoRA selection/configuration, adapter save/load, merge/unmerge | Planned; frozen-base and gradient checks required | P1 R5 L4 |
+| LM-06 | Position schemes, rotary scaling, sliding windows, context validation | Basic RoPE/masks exist; schemes and long-context policies planned | P1 R5 L1/L5 |
+| LM-07 | Greedy/sampled generation, logits processors, stops, streaming, cancellation | Planned token-based generation API | P0 R5 L2 |
+| LM-08 | Batched/paged inference, prefix sharing, continuous batching, memory limits | Upstream paged cache exists; orchestration planned | P1 R5 L2/L5 |
+| LM-09 | Tokenizer SPI, incremental decoding, optional BPE/SentencePiece providers | Planned; application-supplied implementations supported | P1 R5 L2 |
+| LM-10 | Causal-LM pretraining: shifted labels, token masks, packed document boundaries, token-normalized loss | Generic training primitives exist; LM workflow planned | P0 R5 L3 |
+| LM-11 | Supervised fine-tuning with token loss masks and selected trainable parameters | Planned; recipes/data remain caller-defined | P1 R5 L4 |
+| LM-12 | QLoRA with frozen quantized base and trainable adapters | Planned; quantized backward and precision prerequisites | P2 R5 L5 |
+| LM-13 | Perplexity, token-weighted evaluation, reference-logit checks, LLM benchmarks | Numerical tests exist; LM evaluation/benchmark APIs planned | P0 R5 L1/L3 |
+| LM-14 | Token-correct gradient accumulation, activation recomputation, training memory policies | Planned above existing explicit training/checkpoint APIs | P1 R5 L3/L5 |
+| LM-15 | MoE routing/expert blocks and auxiliary losses | Planned later expansion; distributed experts require DIST-01 | P2 R5 L6 |
+| LM-16 | Beam search, constrained-decoding hooks, speculative decoding | Planned later expansion; strategy-specific validation required | P2 R5 L6 |
+| LM-17 | Weight-name/layout adapters, aliases, quantized placement and loading policies | Container/block support upstream; framework integration planned | P1 R5 L2 |
+| LM-18 | Preference objectives such as DPO and reference-model handling | Candidate expansion; separate from a full RL platform | P2 R5 L6 |
+| EX-01 | First-class examples module and shared runner | Implemented with regression and tiny-transformer examples | P0 R1 |
+| EX-02 | MLP example | Existing small fixtures; fluent runnable example planned | P0 R2/R3 |
+| EX-03 | Autoencoder example | Planned | P1 R3/R4 |
+| EX-04 / EX-05 / EX-06 / EX-07 | CNN, RNN, LSTM, and GRU examples | Planned | P1 R4 |
+| EX-08 | Residual CNN example | Planned follow-on | P1 after CNN support |
+| EX-09 | Small causal transformer example | Existing consumer fixture; fluent example planned | P0 R5 |
+| EX-10 | Encoder/decoder sequence example | Planned later architecture expansion | P2 R5 L6 |
+| EX-11 | Real pretrained-model inference consumer | Planned; reference logits, output head, sampling, growing KV cache, hardware measurements | P0 R5 L2 |
+| EX-12 | Small LM pretraining and reproducible resume | Existing tiny consumer fixture; fluent/token-data workflow planned | P0 R5 L3 |
+| EX-13 | Supervised and LoRA fine-tuning examples | Planned; reload adapters and compare output | P1 R5 L4 |
+| EXEC-01 | Vectrix CPU migration (`vectrix-core` and `vectrix-ml`) | Implemented on 4.1.0; scalar/SIMD CPU checks pass | P0 before R1/GPU |
+| EXEC-02 | GPU adapter, exact mode (vectrix-gpu on the DynamisGPU runtime) | Initial storage/arithmetic/GEMM subset implemented and tested on Metal; remaining NN operations pending | P1 R6 |
+| EXEC-04 | GPU adapter, throughput mode (`dynamis-gpu-primitives`) | Initial storage/arithmetic/GEMM subset implemented on 1.14.1 and tested on Metal; remaining NN operations pending | P1 R6 |
+| EXEC-05 | GPU inference path: `PagedKvCache`, GPU `Sampler`, recorded decode steps (`GpuRecording`) | Upstream pieces exist | P1 R5/R6 |
+| EXEC-03 | Mixed precision and quantized execution policies | FP16/BF16 GEMM and quantized GEMM exist upstream; training support is request G-T9 | P2 after R6 |
+| PERF-01 | Worker scheduling, memory planning, fusion, recomputation | Initial benchmarks exist; optimizations planned | P2 R7 |
+| DIST-01 | Distributed training/execution | Separate future design | P3 |
+
+P0 identifies foundations and minimum acceptance tasks for the selected milestone;
+it does not make every P0 feature a prerequisite for the first modular release.
+P1 completes normal workflows. P2 expands workloads and efficiency. P3 requires a
+separately agreed design.
+
+## Adding and prioritizing features
+
+For each new request, record a stable ID, the user task it enables, owning module,
+current primitive support, priority, prerequisites, and an observable acceptance
+example. Identify upstream numerical requirements separately from NNJava API work.
+If an addition changes persistence, ownership, or module dependencies, revisit R0
+before assigning it to a phase. Reprioritization should preserve already-delivered
+behavior and keep release gates explicit.
+
+## First decisions and next design slice
+
+The module/provider foundation and CPU migration are implemented. Next establish
+immutable model/state definitions and fluent sequential/layer builders, while
+extending GPU numerical coverage with independent correctness gates. Preserve
+separate milestones for real-model inference and LM training. Use a nonlinear
+classifier and a caller-configured causal language model as consumer API tests.

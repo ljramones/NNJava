@@ -1,84 +1,84 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>org.dynamisengine</groupId>
-        <artifactId>dynamis-parent</artifactId>
-        <version>1.0.1</version>
-        <relativePath/>
+        <groupId>org.dynamisengine</groupId><artifactId>dynamis-parent</artifactId>
+        <version>1.0.1</version><relativePath/>
     </parent>
-    <artifactId>neuralnetworks</artifactId>
+    <artifactId>nnjava-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>NeuralNetworks</name>
-    <description>Composable Java neural network primitives backed by Vectrix</description>
+    <packaging>pom</packaging>
+    <name>NNJava</name>
+    <description>Composable Java neural networks and language models</description>
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <!-- Temporary bootstrap dependency while the Vectrix 3.0 release is prepared. -->
-        <vectrix.version>2.6.0</vectrix.version>
+        <vectrix.version>4.1.0</vectrix.version>
+        <dynamisgpu.version>1.14.1</dynamisgpu.version>
+        <vectrix.classifier></vectrix.classifier>
+        <nn.jvm.args></nn.jvm.args>
         <junit.version>5.11.0</junit.version>
     </properties>
-    <dependencies>
-        <dependency>
-            <groupId>org.dynamisengine</groupId>
-            <artifactId>vectrix</artifactId>
-            <version>${vectrix.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>${junit.version}</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <modules>
+        <module>nnjava-core</module>
+        <module>nnjava-backend-vectrix</module>
+        <module>nnjava-nn</module>
+        <module>nnjava-transformer</module>
+        <module>nnjava-data</module>
+        <module>nnjava-io</module>
+        <module>nnjava-training</module>
+        <module>nnjava</module>
+        <module>neuralnetworks</module>
+        <module>nnjava-examples</module>
+        <module>nnjava-integration-tests</module>
+        <module>nnjava-bom</module>
+    </modules>
+    <dependencyManagement>
+        <dependencies>
+        <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-backend-vectrix-gpu</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-core</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-backend-vectrix</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-nn</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-transformer</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-data</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-io</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-training</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>neuralnetworks</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-examples</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-integration-tests</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-benchmarks</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>vectrix-core</artifactId><version>${vectrix.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>vectrix-ml</artifactId><version>${vectrix.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>vectrix-gpu</artifactId><version>${vectrix.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>dynamis-gpu-api</artifactId><version>${dynamisgpu.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>dynamis-gpu-primitives</artifactId><version>${dynamisgpu.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>dynamis-gpu-metal</artifactId><version>${dynamisgpu.version}</version></dependency>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>dynamis-gpu-vulkan</artifactId><version>${dynamisgpu.version}</version></dependency>
+            <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>${junit.version}</version></dependency>
+        </dependencies>
+    </dependencyManagement>
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-clean-plugin</artifactId><version>3.5.0</version></plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.1</version></plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.2</version><configuration><argLine>${nn.jvm.args}</argLine><useModulePath>false</useModulePath></configuration></plugin>
+                <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><version>3.4.2</version></plugin>
+                <plugin><groupId>org.codehaus.mojo</groupId><artifactId>exec-maven-plugin</artifactId><version>3.5.0</version></plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.5.0</version>
-                <executions>
-                    <execution>
-                        <id>require-jdk-25</id>
-                        <goals><goal>enforce</goal></goals>
-                        <configuration>
-                            <rules><requireJavaVersion><version>[25,)</version></requireJavaVersion></rules>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.1</version>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.4.2</version>
-                <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <Automatic-Module-Name>org.dynamisengine.nn</Automatic-Module-Name>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>3.5.0</version>
-                <configuration>
-                    <mainClass>org.dynamisengine.nn.examples.LinearRegressionExample</mainClass>
-                </configuration>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-enforcer-plugin</artifactId><version>3.5.0</version>
+                <executions><execution><id>require-jdk-25</id><goals><goal>enforce</goal></goals><configuration><rules><requireJavaVersion><version>[25,)</version></requireJavaVersion></rules></configuration></execution></executions>
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile><id>simd</id><properties><vectrix.classifier>simd</vectrix.classifier><nn.jvm.args>--add-modules jdk.incubator.vector</nn.jvm.args></properties></profile>
+        <profile><id>gpu</id><modules><module>nnjava-backend-vectrix-gpu</module></modules></profile>
+        <profile><id>benchmarks</id><modules><module>nnjava-benchmarks</module></modules></profile>
+    </profiles>
 </project>
