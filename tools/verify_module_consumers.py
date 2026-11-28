@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
+import xml.etree.ElementTree as ET
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--gpu-metal", action="store_true")
@@ -41,8 +42,12 @@ def run(module, paths, *arguments, native=False):
     subprocess.run(command, check=True, cwd=root)
 
 numerics = [artifact(name, "4.1.0", "simd" if args.simd else "") for name in ("vectrix-core", "vectrix-ml")]
+jackson_version = ET.parse(root / "nnjava-bom/pom.xml").getroot().findtext(
+    "{http://maven.apache.org/POM/4.0.0}properties/{http://maven.apache.org/POM/4.0.0}jackson.version")
+if not jackson_version:
+    raise SystemExit("The BOM must define jackson.version")
 formats = [artifact("nnjava-formats", "0.1.0-SNAPSHOT"),
-           args.repository / "com/fasterxml/jackson/core/jackson-core/2.20.2/jackson-core-2.20.2.jar"]
+           args.repository / f"com/fasterxml/jackson/core/jackson-core/{jackson_version}/jackson-core-{jackson_version}.jar"]
 run("example.nnjava.formats/example.FormatsConsumer",
     [root / "examples/formats-consumer/target/classes", *formats])
 training = [artifact(name, "0.1.0-SNAPSHOT") for name in

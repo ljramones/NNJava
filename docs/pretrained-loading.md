@@ -8,7 +8,7 @@ The generic reader does not infer a model family from an architecture string.
 
 | Artifact / JPMS module | Responsibility | Dependencies |
 | --- | --- | --- |
-| `nnjava-formats` / `org.dynamisengine.nn.formats` | GGUF v3, safetensors, local shard indexes, immutable descriptors and metadata | Jackson Core 2.20.2; no NNJava core, model, or numerical module |
+| `nnjava-formats` / `org.dynamisengine.nn.formats` | GGUF v3, safetensors, local shard indexes, immutable descriptors and metadata | Jackson Core 2.21.9; no NNJava core, model, or numerical module |
 | `nnjava-io` / `org.dynamisengine.nn.io` | Explicit name/layout mappings and host snapshots | formats, core, nn; no concrete backend, training, data, or GPU runtime |
 | `nnjava-tokenizers` / `org.dynamisengine.nn.tokenizers` | Byte BPE assets and tokenizer providers | formats; no model or numerical modules |
 

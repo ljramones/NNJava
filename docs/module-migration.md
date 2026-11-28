@@ -40,7 +40,7 @@ Integration tests and JMH are separate development modules. Generation is includ
 in the CPU starter; tokenizers remain an explicit optional dependency. The
 [generation guide](generation-guide.md) documents their initial APIs and boundaries.
 `nnjava-formats` parses mapped GGUF/safetensors without model or numerical modules;
-IO and tokenizers now depend on formats, which uses Jackson Core 2.20.2. Minimal
+IO and tokenizers now depend on formats, which uses Jackson Core 2.21.9. Minimal
 IO/tokenizer module paths therefore include formats and `com.fasterxml.jackson.core`.
 Generation-only consumers still need neither. See [pretrained loading](pretrained-loading.md).
 `nnjava-pretrained` is an optional family-adapter artifact, outside the convenience

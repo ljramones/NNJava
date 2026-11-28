@@ -79,13 +79,16 @@ python3 tools/verify_module_consumers.py --simd \
 ```
 
 `fetch_smollm2.py --verify-only DIRECTORY` checks existing files offline and refuses
-hash mismatches. The reference generator uses pinned PyTorch 2.6.0, Transformers
-4.46.3 and tokenizers 0.20.3, FP32 CPU eager attention, one thread and local files.
+hash mismatches. The reference generator uses pinned PyTorch 2.13.0, Transformers
+5.11.0 and tokenizers 0.22.2, FP32 CPU eager attention, one thread and local files.
+Both reference scripts validate their environment against the requirements file.
+These versions replace earlier vulnerable pins; see the
+[dependency remediation record](evidence/dependency-security-2026-11-27.json).
 It writes `reference.json` and a hashed `reference-logits.f32` containing every
 vocabulary logit in 15 rows: prompt prefill plus four accepted decode steps for
 each of three prompts. The Java consumer verifies the pinned asset hashes and
 reference data hash before model execution. A compact reference record is kept
-in [evidence](evidence/smollm2-reference-2026-11-27.json); regenerate the full binary
+in [evidence](evidence/dependency-reference-2026-11-27.json); regenerate the full binary
 reference with the script above.
 
 ## Acceptance checks
@@ -109,7 +112,7 @@ not establish universal compatibility with all native tokenizer Unicode tables.
 ## Results and remaining work
 
 Both scalar and SIMD CPU runs pass. The largest absolute reference-logit difference
-is **0.000141621**, with RMS error **0.0000209442**. The three continuations include
+is **0.000165462**, with RMS error **0.0000225020** using the patched reference stack. The three continuations include
 `Java is a` → ` programming language that is`.
 
 Timing reports contain load, prefill, four accepted decode steps and request time,
@@ -120,5 +123,5 @@ throughput benchmark, peak-memory measurement or GPU performance result.
 This completes the first CPU pretrained-model acceptance path. GPU operation
 coverage, quantized placement, GPU sampling/paged-cache orchestration, batching,
 long-context behavior, corpus training and further model-family adapters remain
-separate milestones. The [verification record](evidence/pretrained-model-2026-11-27.json)
+separate milestones. The [verification record](evidence/dependency-security-2026-11-27.json)
 links the captured scalar/SIMD reports and test commands.

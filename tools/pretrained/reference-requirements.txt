@@ -1,6 +1,6 @@
 # Independent CPU reference; install into a separate Python 3.12 environment.
-torch==2.6.0
-transformers==4.46.3
-tokenizers==0.20.3
+torch==2.13.0
+transformers==5.11.0
+tokenizers==0.22.2
 safetensors==0.5.3
 numpy==2.2.2

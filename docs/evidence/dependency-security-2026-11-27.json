@@ -1,0 +1,454 @@
+{
+  "date": "2026-11-27",
+  "baseline": "eb40417",
+  "alerts_before": {
+    "total": 35,
+    "severity": {
+      "high": 13,
+      "low": 6,
+      "medium": 16
+    },
+    "packages": {
+      "torch": 9,
+      "transformers": 18,
+      "com.fasterxml.jackson.core:jackson-core": 8
+    }
+  },
+  "upgrades": {
+    "com.fasterxml.jackson.core:jackson-core": {
+      "from": "2.20.2",
+      "to": "2.21.9"
+    },
+    "torch": {
+      "from": "2.6.0",
+      "to": "2.13.0"
+    },
+    "transformers": {
+      "from": "4.46.3",
+      "to": "5.11.0"
+    },
+    "tokenizers": {
+      "from": "0.20.3",
+      "to": "0.22.2"
+    }
+  },
+  "remediation": {
+    "fixed_alert_numbers": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35
+    ],
+    "versions_outside_all_reported_vulnerable_ranges": true,
+    "alerts_dismissed": false,
+    "model_weights_changed": false,
+    "tiny_fixture_weights_changed": false,
+    "reference_scripts_use_requirements_as_version_source": true,
+    "module_consumer_reads_jackson_version_from_bom": true
+  },
+  "python_audit": {
+    "tool": "pip-audit 2.10.1",
+    "packages": 58,
+    "vulnerabilities": 0,
+    "skipped_packages": [],
+    "report": "dependency-python-audit-2026-11-27.json"
+  },
+  "checks": [
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks clean verify",
+      "status": "passed",
+      "tests": 256,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Pgpu,metal install",
+      "status": "passed",
+      "tests": 256,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks verify",
+      "status": "passed",
+      "tests": 256,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "note": "After tiny reference regeneration with patched Python stack"
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-dir MODEL_DIR --pretrained-report SCALAR_REPORT",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --simd --pretrained-dir MODEL_DIR --pretrained-report SIMD_REPORT",
+      "status": "passed"
+    },
+    {
+      "command": "python tools/pretrained/generate_reference.py MODEL_DIR",
+      "status": "passed",
+      "reference_versions": {
+        "torch": "2.13.0",
+        "transformers": "5.11.0",
+        "tokenizers": "0.22.2",
+        "safetensors": "0.5.3",
+        "numpy": "2.2.2"
+      }
+    },
+    {
+      "command": "python tools/pretrained/generate_tiny_fixture.py",
+      "status": "passed"
+    },
+    {
+      "command": "python -m pip_audit --format json --progress-spinner off",
+      "status": "passed",
+      "note": "Full installed temporary reference/auditor environment including transitives"
+    },
+    {
+      "command": "validate_versions against old reference environment",
+      "status": "passed",
+      "note": "Rejects torch 2.6.0; patched environment accepted"
+    },
+    {
+      "command": "Compare upgraded versions with each GitHub vulnerable-version range",
+      "status": "passed",
+      "remaining_affected_alerts": []
+    }
+  ],
+  "model_acceptance": {
+    "compared_logits_per_backend": 737280,
+    "max_absolute_reference_error": 0.00016546249389648438,
+    "rms_reference_error": 2.2502026759033014e-05,
+    "cache_check_max_absolute_error": 0.0,
+    "tokenization_vectors_identical_to_previous_reference": true,
+    "generated_ids_identical_to_previous_reference": true,
+    "tolerances_unchanged": {
+      "absolute": 0.003,
+      "relative": 0.0003
+    },
+    "reference": "dependency-reference-2026-11-27.json",
+    "scalar": "dependency-scalar-2026-11-27.json",
+    "simd": "dependency-simd-2026-11-27.json"
+  },
+  "alerts": [
+    {
+      "number": 1,
+      "manifest": "nnjava-bom/pom.xml",
+      "package": "com.fasterxml.jackson.core:jackson-core",
+      "advisory": "GHSA-72hv-8253-57qq",
+      "severity": "medium",
+      "affected_range": ">= 2.19.0, < 2.21.1"
+    },
+    {
+      "number": 2,
+      "manifest": "nnjava-bom/pom.xml",
+      "package": "com.fasterxml.jackson.core:jackson-core",
+      "advisory": "GHSA-r7wm-3cxj-wff9",
+      "severity": "high",
+      "affected_range": ">= 2.19.0, < 2.21.4"
+    },
+    {
+      "number": 3,
+      "manifest": "nnjava-bom/pom.xml",
+      "package": "com.fasterxml.jackson.core:jackson-core",
+      "advisory": "GHSA-p6pp-m3f8-5c89",
+      "severity": "high",
+      "affected_range": ">= 2.19.0, <= 2.21.6"
+    },
+    {
+      "number": 4,
+      "manifest": "nnjava-bom/pom.xml",
+      "package": "com.fasterxml.jackson.core:jackson-core",
+      "advisory": "GHSA-7hhh-6rmp-j9qf",
+      "severity": "high",
+      "affected_range": ">= 2.19.0, <= 2.21.6"
+    },
+    {
+      "number": 5,
+      "manifest": "pom.xml",
+      "package": "com.fasterxml.jackson.core:jackson-core",
+      "advisory": "GHSA-72hv-8253-57qq",
+      "severity": "medium",
+      "affected_range": ">= 2.19.0, < 2.21.1"
+    },
+    {
+      "number": 6,
+      "manifest": "pom.xml",
+      "package": "com.fasterxml.jackson.core:jackson-core",
+      "advisory": "GHSA-r7wm-3cxj-wff9",
+      "severity": "high",
+      "affected_range": ">= 2.19.0, < 2.21.4"
+    },
+    {
+      "number": 7,
+      "manifest": "pom.xml",
+      "package": "com.fasterxml.jackson.core:jackson-core",
+      "advisory": "GHSA-p6pp-m3f8-5c89",
+      "severity": "high",
+      "affected_range": ">= 2.19.0, <= 2.21.6"
+    },
+    {
+      "number": 8,
+      "manifest": "pom.xml",
+      "package": "com.fasterxml.jackson.core:jackson-core",
+      "advisory": "GHSA-7hhh-6rmp-j9qf",
+      "severity": "high",
+      "affected_range": ">= 2.19.0, <= 2.21.6"
+    },
+    {
+      "number": 9,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-qxrp-vhvm-j765",
+      "severity": "high",
+      "affected_range": ">= 0, < 4.48.0"
+    },
+    {
+      "number": 10,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-hxxf-235m-72v3",
+      "severity": "high",
+      "affected_range": ">= 0, < 4.48.0"
+    },
+    {
+      "number": 11,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-wrfc-pvp9-mr9g",
+      "severity": "high",
+      "affected_range": ">= 0, < 4.48.0"
+    },
+    {
+      "number": 12,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-6rvg-6v2m-4j46",
+      "severity": "medium",
+      "affected_range": "< 4.48.0"
+    },
+    {
+      "number": 13,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-fpwr-67px-3qhx",
+      "severity": "medium",
+      "affected_range": "< 4.50.0"
+    },
+    {
+      "number": 14,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-qq3j-4f4f-9583",
+      "severity": "medium",
+      "affected_range": "< 4.50.0"
+    },
+    {
+      "number": 15,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-3749-ghw9-m3mg",
+      "severity": "low",
+      "affected_range": "< 2.7.1-rc1"
+    },
+    {
+      "number": 16,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-887c-mr87-cxwp",
+      "severity": "medium",
+      "affected_range": "<= 2.7.1"
+    },
+    {
+      "number": 17,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-q2wp-rjmx-x6x9",
+      "severity": "medium",
+      "affected_range": "< 4.51.0"
+    },
+    {
+      "number": 18,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-jjph-296x-mrcr",
+      "severity": "medium",
+      "affected_range": "< 4.51.0"
+    },
+    {
+      "number": 19,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-phhr-52qp-3mj4",
+      "severity": "low",
+      "affected_range": "< 4.52.1"
+    },
+    {
+      "number": 20,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-37mw-44qp-f5jm",
+      "severity": "medium",
+      "affected_range": "<= 4.51.3"
+    },
+    {
+      "number": 21,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-9356-575x-2w9m",
+      "severity": "medium",
+      "affected_range": "< 4.53.0"
+    },
+    {
+      "number": 22,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-59p9-h35m-wg4g",
+      "severity": "medium",
+      "affected_range": "< 4.53.0"
+    },
+    {
+      "number": 23,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-rcv9-qm8p-9p6j",
+      "severity": "medium",
+      "affected_range": "< 4.53.0"
+    },
+    {
+      "number": 24,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-4w7r-h757-3r74",
+      "severity": "medium",
+      "affected_range": "< 4.53.0"
+    },
+    {
+      "number": 25,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-69w3-r845-3855",
+      "severity": "medium",
+      "affected_range": "< 5.0.0rc3"
+    },
+    {
+      "number": 26,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-c678-jfcj-6jmf",
+      "severity": "low",
+      "affected_range": "<= 2.6.0"
+    },
+    {
+      "number": 27,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-f4hp-rmr7-r7v8",
+      "severity": "medium",
+      "affected_range": "<= 2.6.0"
+    },
+    {
+      "number": 28,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-x3gm-94wq-g975",
+      "severity": "low",
+      "affected_range": "<= 2.6.0"
+    },
+    {
+      "number": 29,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-vgrw-7cvw-pwgx",
+      "severity": "medium",
+      "affected_range": "< 2.9.1"
+    },
+    {
+      "number": 30,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-qfhq-4f3w-5fph",
+      "severity": "low",
+      "affected_range": "< 2.10.0"
+    },
+    {
+      "number": 31,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-29pf-2h5f-8g72",
+      "severity": "high",
+      "affected_range": "< 5.3.0"
+    },
+    {
+      "number": 32,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-fgcw-684q-jj6r",
+      "severity": "high",
+      "affected_range": "< 5.5.0"
+    },
+    {
+      "number": 33,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-rrmf-rvhw-rf47",
+      "severity": "low",
+      "affected_range": "<= 2.12.1"
+    },
+    {
+      "number": 34,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "transformers",
+      "advisory": "GHSA-xrqw-3rrv-vx5w",
+      "severity": "high",
+      "affected_range": "< 5.10.0"
+    },
+    {
+      "number": 35,
+      "manifest": "tools/pretrained/reference-requirements.txt",
+      "package": "torch",
+      "advisory": "GHSA-63cw-57p8-fm3p",
+      "severity": "high",
+      "affected_range": "< 2.10.0"
+    }
+  ],
+  "scope": "Java runtime parser and offline Python reference tooling. Vectrix 4.1.0 and DynamisGPU 1.14.1 stay pinned. Historical implementation evidence is retained separately."
+}
