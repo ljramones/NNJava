@@ -26,7 +26,35 @@ public final class GpuConsumer {
             if (!java.util.Arrays.equals(new float[]{19, 22, 43, 50}, result.toFloatArray())) {
                 throw new AssertionError("GPU matrix product differs");
             }
+            neuralWorkflow(context);
             System.out.println("GPU module-path consumer passed: " + context.device());
         }
+    }
+
+    private static void neuralWorkflow(ExecutionContext context) {
+        int before = context.liveAllocations();
+        try (var input = context.tensor(new float[]{1, .2f, -.3f, -.5f, .7f, 1}, Shape.of(2, 3), true);
+             var weights = context.tensor(new float[]{.2f, .5f, -.1f, -.3f, .4f, .7f}, Shape.of(3, 2), true);
+             var scale = context.tensor(new float[]{1, 1}, Shape.of(2), true);
+             var bias = context.tensor(new float[]{.1f, -.2f}, Shape.of(2), true);
+             var target = context.tensor(new float[]{.2f, .8f, .7f, .3f}, Shape.of(2, 2));
+             var tape = context.gradientTape(); var projected = Ops.matmul(input, weights);
+             var shifted = Ops.add(projected, bias); var active = Ops.silu(shifted);
+             var normalized = Ops.rmsNorm(active, scale, 1e-5f); var probabilities = Ops.softmax(normalized, -1);
+             var difference = Ops.subtract(probabilities, target); var squared = Ops.square(difference); var loss = Ops.mean(squared)) {
+            tape.backward(loss);
+            float[] values = probabilities.toFloatArray();
+            for (int row = 0; row < 2; row++) {
+                if (Math.abs(values[row * 2] + values[row * 2 + 1] - 1) > 2e-5f) { throw new AssertionError("GPU probability row does not sum to one"); }
+            }
+            for (var tensor : new org.dynamisengine.nn.tensor.Tensor[]{input, weights, scale, bias}) {
+                try (var gradient = tensor.gradient()) {
+                    for (float value : gradient.toFloatArray()) { if (!Float.isFinite(value)) { throw new AssertionError("GPU neural gradient is not finite"); } }
+                }
+            }
+            try (var gradient = weights.gradient()) { context.axpy(weights, gradient, -.01f); }
+        }
+        context.synchronize();
+        if (context.liveAllocations() != before) { throw new AssertionError("GPU neural workflow leaked tensor allocations"); }
     }
 }

@@ -1,0 +1,80 @@
+{
+  "date": "2026-11-27",
+  "baseline": "533a15e",
+  "targets": {"jdk": "25", "vectrix": "4.1.0", "dynamisgpu": "1.14.1"},
+  "device": "Apple M4 Max, native Metal",
+  "modes": ["vectrix-gpu-exact", "dynamis-gpu-throughput"],
+  "compute_dtype": "FP32",
+  "added_operations": [
+    "RELU", "SIGMOID", "TANH", "GELU", "SILU",
+    "RELU_BACKWARD", "SIGMOID_BACKWARD", "TANH_BACKWARD", "GELU_BACKWARD", "SILU_BACKWARD",
+    "SOFTMAX", "LOG_SOFTMAX", "SOFTMAX_BACKWARD", "LOG_SOFTMAX_BACKWARD",
+    "LAYER_NORM", "RMS_NORM", "NORM_BACKWARD",
+    "SUM", "SUM_TO", "REDUCE_SUM", "NORM2", "DROPOUT"
+  ],
+  "extended_operations": [
+    "Device packing for exact-mode broadcast arithmetic and general positive-stride views",
+    "Broadcast batched GEMM with transpose/offset/strided operands, zero inner dimension and autograd",
+    "Per-operation selected tiers and numerical accuracy contracts"
+  ],
+  "checks": [
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks verify",
+      "status": "passed", "tests": 272, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Pgpu,metal install",
+      "status": "passed", "tests": 272, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal",
+      "status": "passed",
+      "consumers": [
+        "formats", "training", "inference", "generation", "tokenizers", "pretrained self-test",
+        "exact Metal neural forward/backward/update", "throughput Metal neural forward/backward/update"
+      ],
+      "gpu_module_path": "GPU consumer, core, GPU adapter and published numerical/native modules; no CPU adapter, layer, training or data modules"
+    }
+  ],
+  "reactor_test_counts": {
+    "core": 5, "formats": 11, "generation": 24, "tokenizers": 26,
+    "pretrained": 4, "integration": 171, "examples": 8, "gpu_adapter": 23,
+    "total": 272,
+    "new_gpu_hardware_tests": 16
+  },
+  "numerical_validation": [
+    "CPU output and gradient parity for five activations, softmax/log-softmax, LayerNorm/RMSNorm, dropout, reductions and batched GEMM in both modes",
+    "Exact comparisons use FP32 bits for normal values; throughput comparisons use fixture-specific tolerances rather than a whole-model bound",
+    "ReLU signed zero, NaN and infinity semantics; erf-based GELU retained in both modes",
+    "Fully masked softmax/log-softmax rows and zero gradients; non-last-axis layout restoration",
+    "Philox dropout with a nonzero counter and exact forward masks and gradients",
+    "Normalization input/scale/bias gradients across strided views and 259-by-17 multi-block reductions",
+    "Zero-row normalization, including an empty view with a nonzero storage offset, produces zero parameter gradients",
+    "Multiple-axis/keep-dimension sums and broadcast-gradient reductions; exact SUM_TO cancellation fixture distinguishes CPU serial order from tree summation",
+    "Empty reductions, overflow-safe Euclidean norm with 1e30 inputs, cross-batch GEMM gradients and stepped matrix operands",
+    "Supplied-weight Sequential/Linear/SiLU/LayerNorm/dropout composition matches CPU losses and final parameters through three explicit gradient/AXPY updates",
+    "Six injected scratch allocation failures per mode restore NNJava buffer-handle counts and clean aborted recordings",
+    "Unsupported FP16 computation and oversized rows reject before numerical dispatch"
+  ],
+  "semantic_selections": {
+    "throughput_exact_tier": ["RELU", "RELU_BACKWARD", "GELU", "GELU_BACKWARD", "LOG_SOFTMAX", "LOG_SOFTMAX_BACKWARD", "DROPOUT", "NORM2", "SCALE", "AXPY"],
+    "fully_masked_rows": "Device maximum/compare/select composition: probability and gradient zero; log probability negative infinity",
+    "exact_sum_to": "Serial GPU pointwise additions preserve each target's CPU input order from positive zero",
+    "throughput_sum_to": "Published fixed-tree reduction order; not a CPU bit-equivalence claim"
+  },
+  "limits": [
+    "No custom NNJava shaders, float atomics or implicit CPU numerical fallback",
+    "Exact comparisons retain upstream subnormal/flush-to-zero limits",
+    "FP16 and BF16 are storage types only; new neural computation is FP32",
+    "Softmax and normalization row widths are 1 through 262144; leading dimensions may be empty",
+    "General packing, serial exact SUM_TO and per-matrix batch dispatch remain performance optimization targets",
+    "Full generic GPU model construction/inference still needs public masks/logic/indexing, embedding gather/scatter, RoPE and an initialization/loading policy",
+    "Stateful optimizers, cross-entropy, convolution/pooling and mixed-precision training remain separate GPU gates",
+    "Paged cache, GPU sampler, recorded decode and quantized placement are not integrated by this batch",
+    "Vulkan and end-to-end performance were not measured; no complete GPU Trainer or LLM claim"
+  ]
+}

@@ -15,6 +15,7 @@ import org.dynamisengine.gpu.api.compute.BufferDescriptor;
 import org.dynamisengine.gpu.api.compute.BufferUsage;
 import org.dynamisengine.gpu.api.compute.GpuBuffer;
 import org.dynamisengine.gpu.api.compute.GpuCommandEncoder;
+import org.dynamisengine.gpu.api.compute.GpuCapabilities;
 import org.dynamisengine.gpu.api.compute.GpuDevice;
 import org.dynamisengine.gpu.api.compute.Placement;
 import org.dynamisengine.gpu.api.compute.kit.AccuracyContract;
@@ -30,13 +31,14 @@ import org.dynamisengine.nn.backend.KernelTensor;
 import org.dynamisengine.nn.backend.Operation;
 import org.dynamisengine.nn.runtime.Device;
 import org.dynamisengine.nn.tensor.DType;
+import org.dynamisengine.nn.tensor.Shape;
 import org.dynamisengine.nn.tensor.TensorLayout;
 import org.dynamisengine.vectrix.compute.GpuBlasf;
 import org.dynamisengine.vectrix.compute.GpuGemmf;
 import org.dynamisengine.vectrix.compute.GpuPointwise;
 
 /**
- * Initial GPU storage and arithmetic adapter. Owns the supplied device. Coverage
+ * GPU storage, arithmetic and neural-operation adapter. Owns the supplied device. Coverage
  * is deliberately capability-gated: this is not yet a complete NN inference or
  * training backend. All numerical kernels come from the released upstream stack.
  */
@@ -49,6 +51,8 @@ public final class GpuBackend implements Backend {
     private final Set<Allocation> allocations = new HashSet<>();
     private final List<GpuCompletion> pending = new ArrayList<>();
     private final Map<Operation, String> tiers = new LinkedHashMap<>();
+    private final Map<Operation, AccuracyContract> contracts = new LinkedHashMap<>();
+    private final GpuNeuralKernels neural;
     private GpuPointwise pointwise;
     private GpuBlasf blas;
     private GpuGemmf exactGemm;
@@ -60,6 +64,7 @@ public final class GpuBackend implements Backend {
         this.gpu = Objects.requireNonNull(gpu, "gpu");
         this.mode = Objects.requireNonNull(mode, "mode");
         device = new Device(mode == GpuMode.EXACT ? "vectrix-gpu-exact" : "dynamis-gpu-throughput", GpuProviders.key(gpu.adapter()));
+        neural = new GpuNeuralKernels(this, gpu, mode);
     }
 
     private static boolean whole(KernelTensor tensor) {
@@ -98,6 +103,15 @@ public final class GpuBackend implements Backend {
         return Map.copyOf(tiers);
     }
 
+    /** FP32 numerical contracts for the last selected kernels, including exact-tier compositions. */
+    public Map<Operation, AccuracyContract> accuracyContracts() { return Map.copyOf(contracts); }
+
+    void selected(Operation operation, String tier, AccuracyContract contract) {
+        tiers.put(operation, tier); contracts.put(operation, contract);
+    }
+    GpuBuffer storage(KernelTensor tensor) { return own(tensor.buffer()).buffer; }
+    int liveBufferHandles() { return allocations.size(); }
+
     /**
      * Present after the first throughput GEMM; exposes the upstream accuracy contract.
      */
@@ -112,6 +126,10 @@ public final class GpuBackend implements Backend {
         }
         if (dtype != DType.FP32) {
             return false;
+        }
+        if (GpuNeuralKernels.handles(operation)) {
+            return operation != Operation.GELU && operation != Operation.GELU_BACKWARD
+                    || gpu.capabilities().dataTypes().contains(GpuCapabilities.INT64);
         }
         return switch (operation) {
             case FILL, ADD, SUBTRACT, MULTIPLY, DIVIDE, EXP, LOG, SQRT, SCALE, AXPY, MATMUL -> true;
@@ -134,23 +152,18 @@ public final class GpuBackend implements Backend {
             }
             return whole(source) && whole(call.output());
         }
+        if (GpuNeuralKernels.handles(call.operation())) { return GpuNeuralKernels.supports(call); }
         if (call.inputs().stream().anyMatch(t -> t.buffer().dtype() != DType.FP32)
                 || !call.output().layout().isContiguous()) {
             return false;
         }
         if (call.operation() == Operation.MATMUL) {
-            return call.output().layout().shape().rank() == 2
-                    && call.inputs().stream().allMatch(t -> matrixLayout(t.layout()));
+            return call.output().layout().shape().rank() >= 2;
         }
         if (call.operation() == Operation.FILL) {
             return true;
         }
-        if (mode == GpuMode.THROUGHPUT && call.operation() != Operation.SCALE && call.operation() != Operation.AXPY) {
-            return call.output().layout().shape().rank() <= StridedView.MAX_RANK
-                    && call.inputs().stream().allMatch(t -> t.layout().shape().rank() <= StridedView.MAX_RANK);
-        }
-        return call.inputs().stream().allMatch(t -> t.layout().isContiguous()
-                && t.layout().shape().equals(call.output().layout().shape()));
+        return true; // Strided/broadcast inputs can be packed with device copies before numerical dispatch.
     }
 
     @Override
@@ -185,16 +198,15 @@ public final class GpuBackend implements Backend {
     private void encode(GpuCommandEncoder encoder, KernelCall call) {
         Operation op = call.operation();
         KernelTensor out = call.output();
+        if (GpuNeuralKernels.handles(op)) { neural.encode(encoder, call); return; }
         if (op == Operation.COPY) {
             copy(encoder, call.inputs().getFirst(), out);
             tiers.put(op, "DynamisGPU storage");
             return;
         }
         if (op == Operation.FILL) {
-            try (var slice = range(out)) {
-                encoder.fill(slice, Float.floatToRawIntBits(call.scalar()));
-            }
-            tiers.put(op, "DynamisGPU storage");
+            fill(encoder, out, call.scalar());
+            selected(op, "DynamisGPU storage", GpuNeuralKernels.exactContract(op));
             return;
         }
         if (op == Operation.MATMUL) {
@@ -210,16 +222,20 @@ public final class GpuBackend implements Backend {
             if (blas == null) {
                 blas = new GpuBlasf(gpu);
             }
-            if (op == Operation.SCALE) {
-                copy(encoder, a, out);
-                blas.scal(encoder, call.scalar(), ov, oo, n);
-            } else {
-                blas.axpy(encoder, call.scalar(), av, ao, ov, oo, n);
+            try (var scratch = new GpuScratch(this)) {
+                var packed = scratch.broadcast(encoder, a, out.layout().shape());
+                if (op == Operation.SCALE) {
+                    copy(encoder, packed, out);
+                    blas.scal(encoder, call.scalar(), ov, oo, n);
+                } else {
+                    blas.axpy(encoder, call.scalar(), storage(packed), packed.layout().offset(), ov, oo, n);
+                }
             }
-            tiers.put(op, "vectrix-gpu");
+            selected(op, "vectrix-gpu", GpuNeuralKernels.exactContract(op));
             return;
         }
-        if (mode == GpuMode.THROUGHPUT) {
+        if (mode == GpuMode.THROUGHPUT && out.layout().shape().rank() <= StridedView.MAX_RANK
+                && call.inputs().stream().allMatch(t -> t.layout().shape().rank() <= StridedView.MAX_RANK)) {
             if (elementwise == null) {
                 elementwise = Elementwise.create(gpu);
             }
@@ -236,38 +252,73 @@ public final class GpuBackend implements Backend {
                 };
                 elementwise.binary(encoder, binary, av, first, own(b.buffer()).buffer,
                         view(b.layout().broadcastTo(out.layout().shape())), ov, output);
+                selected(op, "dynamis-gpu-primitives", Elementwise.contract(binary));
             } else {
-                elementwise.unary(encoder, Elementwise.Unary.valueOf(op.name()), av, first, ov, output);
+                var unary = Elementwise.Unary.valueOf(op.name());
+                elementwise.unary(encoder, unary, av, first, ov, output);
+                selected(op, "dynamis-gpu-primitives", Elementwise.contract(unary));
             }
-            tiers.put(op, "dynamis-gpu-primitives");
         } else {
             if (pointwise == null) {
                 pointwise = new GpuPointwise(gpu);
             }
-            if (call.inputs().size() == 2) {
-                KernelTensor b = call.inputs().get(1);
-                GpuBuffer bv = own(b.buffer()).buffer;
-                long bo = b.layout().offset();
-                switch (op) {
-                    case ADD -> pointwise.add(encoder, av, ao, bv, bo, ov, oo, n);
-                    case SUBTRACT -> pointwise.sub(encoder, av, ao, bv, bo, ov, oo, n);
-                    case MULTIPLY -> pointwise.mul(encoder, av, ao, bv, bo, ov, oo, n);
-                    case DIVIDE -> pointwise.div(encoder, av, ao, bv, bo, ov, oo, n);
-                    default -> throw new UnsupportedOperationException(op.toString());
-                }
-            } else {
-                switch (op) {
-                    case EXP -> pointwise.exp(encoder, av, ao, ov, oo, n);
-                    case LOG -> pointwise.log(encoder, av, ao, ov, oo, n);
-                    case SQRT -> pointwise.sqrt(encoder, av, ao, ov, oo, n);
-                    default -> throw new UnsupportedOperationException(op.toString());
+            try (var scratch = new GpuScratch(this)) {
+                a = scratch.broadcast(encoder, a, out.layout().shape()); av = storage(a); ao = a.layout().offset();
+                if (call.inputs().size() == 2) {
+                    KernelTensor b = scratch.broadcast(encoder, call.inputs().get(1), out.layout().shape());
+                    GpuBuffer bv = storage(b);
+                    long bo = b.layout().offset();
+                    switch (op) {
+                        case ADD -> pointwise.add(encoder, av, ao, bv, bo, ov, oo, n);
+                        case SUBTRACT -> pointwise.sub(encoder, av, ao, bv, bo, ov, oo, n);
+                        case MULTIPLY -> pointwise.mul(encoder, av, ao, bv, bo, ov, oo, n);
+                        case DIVIDE -> pointwise.div(encoder, av, ao, bv, bo, ov, oo, n);
+                        default -> throw new UnsupportedOperationException(op.toString());
+                    }
+                } else {
+                    switch (op) {
+                        case EXP -> pointwise.exp(encoder, av, ao, ov, oo, n);
+                        case LOG -> pointwise.log(encoder, av, ao, ov, oo, n);
+                        case SQRT -> pointwise.sqrt(encoder, av, ao, ov, oo, n);
+                        default -> throw new UnsupportedOperationException(op.toString());
+                    }
                 }
             }
-            tiers.put(op, "vectrix-gpu");
+            selected(op, "vectrix-gpu", GpuNeuralKernels.exactContract(op));
         }
     }
 
     private void matrixProduct(GpuCommandEncoder encoder, KernelCall call) {
+        Shape shape = call.output().layout().shape(); int rank = shape.rank();
+        if (rank == 2) { matrix(encoder, call); return; }
+        long m = shape.dimension(rank - 2), n = shape.dimension(rank - 1);
+        var batch = shape.prefix(rank - 2);
+        long k = call.inputs().getFirst().layout().shape().dimension(call.inputs().getFirst().layout().shape().rank() - 1);
+        var left = call.inputs().getFirst().layout().broadcastTo(batch.append(m, k));
+        var right = call.inputs().get(1).layout().broadcastTo(batch.append(k, n));
+        for (long index = 0; index < batch.elements(); index++) {
+            long cursor = index, ao = left.offset(), bo = right.offset();
+            for (int axis = batch.rank() - 1; axis >= 0; axis--) {
+                long coordinate = cursor % batch.dimension(axis); cursor /= batch.dimension(axis);
+                ao += coordinate * left.stride(axis); bo += coordinate * right.stride(axis);
+            }
+            var a = new KernelTensor(call.inputs().getFirst().buffer(), new TensorLayout(Shape.of(m, k), new long[]{left.stride(rank - 2), left.stride(rank - 1)}, ao));
+            var b = new KernelTensor(call.inputs().get(1).buffer(), new TensorLayout(Shape.of(k, n), new long[]{right.stride(rank - 2), right.stride(rank - 1)}, bo));
+            var out = new KernelTensor(call.output().buffer(), new TensorLayout(Shape.of(m, n), new long[]{n, 1}, call.output().layout().offset() + index * m * n));
+            matrix(encoder, new KernelCall(Operation.MATMUL, List.of(a, b), out, 0));
+        }
+    }
+
+    private void matrix(GpuCommandEncoder encoder, KernelCall call) {
+        try (var scratch = new GpuScratch(this)) {
+            var a = call.inputs().getFirst(); var b = call.inputs().get(1);
+            if (!matrixLayout(a.layout())) { a = scratch.packed(encoder, a, false); }
+            if (!matrixLayout(b.layout())) { b = scratch.packed(encoder, b, false); }
+            matrixProduct2D(encoder, new KernelCall(Operation.MATMUL, List.of(a, b), call.output(), 0));
+        }
+    }
+
+    private void matrixProduct2D(GpuCommandEncoder encoder, KernelCall call) {
         KernelTensor a = call.inputs().get(0), b = call.inputs().get(1), out = call.output();
         int m = Math.toIntExact(a.layout().shape().dimension(0));
         int k = Math.toIntExact(a.layout().shape().dimension(1));
@@ -276,6 +327,7 @@ public final class GpuBackend implements Backend {
             try (var slice = range(out)) {
                 encoder.fill(slice, 0);
             }
+            selected(Operation.MATMUL, "DynamisGPU storage", GpuNeuralKernels.exactContract(Operation.MATMUL));
             return;
         }
         boolean ta = a.layout().stride(1) != 1, tb = b.layout().stride(1) != 1;
@@ -287,7 +339,7 @@ public final class GpuBackend implements Backend {
             }
             exactGemm.gemm(encoder, ta, tb, m, n, k, 1, own(a.buffer()).buffer, a.layout().offset(), lda,
                     own(b.buffer()).buffer, b.layout().offset(), ldb, 0, own(out.buffer()).buffer, out.layout().offset(), n);
-            tiers.put(Operation.MATMUL, "vectrix-gpu");
+            selected(Operation.MATMUL, "vectrix-gpu", GpuNeuralKernels.exactContract(Operation.MATMUL));
         } else {
             if (throughputGemm == null) {
                 throughputGemm = GemmF16.create(gpu, GemmF16.Input.FP32, Precision.FP32);
@@ -311,7 +363,7 @@ public final class GpuBackend implements Backend {
                 // Recorded commands retain native storage independently of these handles.
                 temporary.forEach(Allocation::close);
             }
-            tiers.put(Operation.MATMUL, "dynamis-gpu-primitives");
+            selected(Operation.MATMUL, "dynamis-gpu-primitives", throughputGemm.contract());
         }
     }
 
@@ -340,7 +392,12 @@ public final class GpuBackend implements Backend {
         return buffer.slice(offset, buffer.bytes() - offset);
     }
 
-    private void copy(GpuCommandEncoder encoder, KernelTensor source, KernelTensor target) {
+    void fill(GpuCommandEncoder encoder, KernelTensor target, float value) {
+        if (target.layout().shape().elements() != 0) { try (var slice = range(target)) { encoder.fill(slice, Float.floatToRawIntBits(value)); } }
+    }
+
+    void copy(GpuCommandEncoder encoder, KernelTensor source, KernelTensor target) {
+        if (target.layout().shape().elements() == 0) { return; }
         if (source.buffer() == target.buffer() && source.layout().equals(target.layout())) {
             return;
         }
@@ -356,11 +413,15 @@ public final class GpuBackend implements Backend {
             }
         } else {
             int bytes = width(a.dtype);
-            for (long i = 0; i < target.layout().shape().elements(); i++) {
-                try (var av = a.buffer.slice(source.layout().index(i) * bytes, bytes);
-                     var bv = b.buffer.slice(target.layout().index(i) * bytes, bytes)) {
+            long count = target.layout().shape().elements();
+            for (long i = 0; i < count;) {
+                long ai = source.layout().index(i), bi = target.layout().index(i), run = 1;
+                while (i + run < count && source.layout().index(i + run) == ai + run && target.layout().index(i + run) == bi + run) { run++; }
+                try (var av = a.buffer.slice(ai * bytes, run * bytes);
+                     var bv = b.buffer.slice(bi * bytes, run * bytes)) {
                     encoder.copy(av, bv);
                 }
+                i += run;
             }
         }
     }
@@ -518,7 +579,7 @@ public final class GpuBackend implements Backend {
         for (var allocation : Set.copyOf(allocations)) {
             allocation.close();
         }
-        for (AutoCloseable resource : new AutoCloseable[]{throughputGemm, elementwise, exactGemm, blas, pointwise, gpu}) {
+        for (AutoCloseable resource : new AutoCloseable[]{neural, throughputGemm, elementwise, exactGemm, blas, pointwise, gpu}) {
             if (resource != null) {
                 try {
                     resource.close();

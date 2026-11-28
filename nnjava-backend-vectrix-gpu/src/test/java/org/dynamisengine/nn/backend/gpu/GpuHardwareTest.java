@@ -73,7 +73,8 @@ class GpuHardwareTest {
                 try (result; var view = Ops.transpose(result); var copied = Ops.copy(view)) {
                     assertArrayEquals(new float[]{1, 16, 4, 25, 9, 36}, copied.toFloatArray());
                     assertArrayEquals(copied.toFloatArray(), view.toFloatArray());
-                    assertThrows(UnsupportedOperationException.class, () -> Ops.sum(result));
+                    try (var sum = Ops.sum(result)) { assertArrayEquals(new float[]{91}, sum.toFloatArray()); }
+                    assertThrows(UnsupportedOperationException.class, () -> Ops.max(result, 0, false));
                     assertArrayEquals(new float[]{1, 4, 9, 16, 25, 36}, result.toFloatArray());
                 }
                 assertEquals(0, context.liveAllocations());
@@ -103,18 +104,13 @@ class GpuHardwareTest {
     }
 
     @Test
-    void throughputSupportsBroadcastAndExactModeReportsUnsupportedLayouts() throws Exception {
+    void bothModesSupportBroadcastWithDevicePacking() throws Exception {
         for (GpuMode mode : GpuMode.values()) {
             try (var context = ExecutionContext.create(new GpuBackend(device(), mode));
                  var matrix = context.tensor(new float[]{1, 2, 3, 4, 5, 6}, Shape.of(2, 3));
                  var bias = context.tensor(new float[]{10, 20, 30}, Shape.of(3))) {
-                if (mode == GpuMode.THROUGHPUT) {
-                    try (var sum = Ops.add(matrix, bias)) {
-                        assertArrayEquals(new float[]{11, 22, 33, 14, 25, 36}, sum.toFloatArray());
-                    }
-                } else {
-                    assertThrows(UnsupportedOperationException.class, () -> Ops.add(matrix, bias));
-                    assertArrayEquals(new float[]{1, 2, 3, 4, 5, 6}, matrix.toFloatArray());
+                try (var sum = Ops.add(matrix, bias)) {
+                    assertArrayEquals(new float[]{11, 22, 33, 14, 25, 36}, sum.toFloatArray());
                 }
             }
         }

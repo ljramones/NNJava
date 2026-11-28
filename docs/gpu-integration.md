@@ -1,6 +1,6 @@
 # GPU Integration Plan
 
-NNJava's GPU support builds on two published releases, Vectrix 4.0.0 and DynamisGPU 1.13.0. Most of what this plan
+NNJava's GPU support targets the published Vectrix 4.1.0 and DynamisGPU 1.14.1 releases. Most of what this plan
 originally asked of upstream now exists:
 
 - a GPU runtime with pooled memory, command replay, strided views and profiling;
@@ -52,7 +52,7 @@ enable float atomics.
   not pull them in.
 
 Core, layers, model definitions and CPU consumers never load these. The CPU backend depends on
-`org.dynamisengine:vectrix-core` and `vectrix-ml` 4.0.x only (NNJava uses `blas`, `hash`, `core` and `nn`), not on
+`org.dynamisengine:vectrix-core` and `vectrix-ml` 4.1.x only (NNJava uses `blas`, `hash`, `core` and `nn`), not on
 the `vectrix` compatibility artifact, which also brings the render and signal jars.
 
 ## Distribution
@@ -105,7 +105,7 @@ comes before any GPU dependency.
     - **Decode loops:** a cached decode step records once and replays through `GpuRecording`.
 5. **Capabilities:** preflight a model's operations against the chosen mode, the tier table and the device's
    capability tier (`GpuCapabilities`), and report unsupported components by module path before allocation.
-6. **Versions:** `nnjava-bom` pins Vectrix 4.0.x, vectrix-gpu 4.0.x and DynamisGPU 1.13.x, as tested.
+6. **Versions:** `nnjava-bom` pins Vectrix/vectrix-gpu 4.1.0 and DynamisGPU 1.14.1, as tested.
 
 ## Implementation and acceptance order
 
@@ -124,6 +124,10 @@ Hardware runs:
   self-hosted Apple GPU runner (native Metal and MoltenVK).
 - **Measurements:** report platform coverage as measured, and separate transfer, allocation, submission, execution
   and end-to-end costs; DynamisGPU's profiling already labels each dispatch.
+
+The current [GPU neural-operation adapter](gpu-neural-operations.md) adds neural
+functions, sums/norms, batched GEMM and gradient compositions on Metal. Full GPU
+model construction/indexing/RoPE and inference orchestration remain subsequent gates.
 
 ## History
 

@@ -137,10 +137,13 @@ The optional GPU foundation has two modes:
 - **Throughput:** DynamisGPU's primitives, with published accuracy contracts.
 
 Both run on DynamisGPU's runtime (Metal and Vulkan). NNJava owns tensor/model
-semantics and the adapters. Typed storage, an initial FP32 arithmetic subset, and
-rank-two GEMM have been exercised locally on Metal in both modes. Full NN/LLM
-inference and training require further operation coverage; Vulkan execution is not
+semantics and the adapters. Typed storage, FP32 arithmetic/broadcasts, batched GEMM,
+activations, softmax, normalization, sums/norms, dropout and their supported gradients
+have been exercised locally on Metal in both modes. Full NN/LLM inference and
+Trainer workflows require further operation coverage; Vulkan execution is not
 yet verified here. See the [implemented capability limits](docs/module-migration.md#initial-gpu-capabilities).
+The [GPU neural-operation guide](docs/gpu-neural-operations.md) covers exact/throughput
+selection, layout handling, gradient checks and remaining model-execution gates.
 
 ```sh
 mvn -Pgpu,metal clean install

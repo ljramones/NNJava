@@ -85,21 +85,25 @@ Implemented coverage:
 
 - FP32, INT32, BOOL, FP16, and BF16 transfers, including empty tensors.
 - FP32/INT32/BOOL view copies on-device; whole-buffer low-precision copies.
-- FP32 fill, add/subtract/multiply/divide, exp/log/sqrt, scale, AXPY, and rank-two
-  GEMM with row-major or transpose views and offsets.
+- FP32 fill, arithmetic, exp/log/sqrt, scale, AXPY, broadcast batched GEMM,
+  transpose/general positive-stride views and offsets.
 - Exact arithmetic through Vectrix twins; throughput arithmetic through DynamisGPU
   primitives, with scale/AXPY explicitly reported as exact-tier operations.
-- Throughput elementwise broadcasting for views up to rank four. Exact-mode
-  arithmetic currently requires matching contiguous shapes.
+- Device packing for broadcast arithmetic in both modes; throughput strided
+  elementwise kernels handle views through rank four directly.
+- Activation, softmax/log-softmax, LayerNorm/RMSNorm and dropout forward/backward
+  operations; sums, broadcast-gradient reductions and robust Euclidean norms.
 
-The adapter exposes selected kernel tiers and the throughput GEMM accuracy
-contract. It rejects unsupported operations/layouts before submission and never
+The adapter exposes selected kernel tiers and per-operation accuracy contracts.
+It rejects unsupported operations/layouts before submission and never
 performs implicit CPU numerical fallback. Explicit host readbacks may unpack a
 view from its allocation on the host.
 
-This subset does not yet support reductions, NN activations/norms/attention,
-optimizers, normal initialization, batched GEMM, or FP16/BF16 computation through
-NNJava. Those gates must pass before claiming full model inference or training.
+Public logic/masks/indexing, embedding gather/scatter, RoPE, general max/argmax,
+stateful optimizers, cross-entropy, normal initialization and FP16/BF16 computation
+remain unsupported through this adapter. These gates must pass before claiming
+complete model inference or Trainer workflows. See [GPU neural operations](gpu-neural-operations.md)
+for the tested compositions, row limits and tier choices.
 Per-step arenas, replay, paged caches, and sampling are subsequent integration work.
 
 Native runtimes are supplied by the application. DynamisGPU 1.14.1's native jars

@@ -25,7 +25,8 @@ examples, fluent sequential/Linear construction, versioned model definitions,
 configurable causal decoders, CPU prefill/decode sessions, supervised Trainer/data
 APIs, grouped/depthwise CNN layers with pooling, and RNN/LSTM/GRU cells, masked
 sequences, and explicit state. The optional GPU
-foundation supplies storage, selected FP32 arithmetic, and rank-two GEMM; complete
+adapter supplies storage, FP32 arithmetic, batched GEMM, neural functions,
+sum/norm reductions and supported gradients; complete
 GPU model execution remains pending.
 
 The [model builder guide](model-builders.md) documents construction, definitions,
@@ -186,8 +187,8 @@ its planned builder or orchestration API already exists.
 | EX-12 | Small LM pretraining and reproducible resume | Small token-ID training/resume implemented; corpus/packing workflow remains planned | P0 R5 L3 |
 | EX-13                         | Supervised and LoRA fine-tuning examples                                                              | Planned; reload adapters and compare output                                                                       | P1 R5 L4              |
 | EXEC-01                       | Vectrix CPU migration (`vectrix-core` and `vectrix-ml`)                                               | Implemented on 4.1.0; scalar/SIMD CPU checks pass                                                                 | P0 before R1/GPU      |
-| EXEC-02                       | GPU adapter, exact mode (vectrix-gpu on the DynamisGPU runtime)                                       | Initial storage/arithmetic/GEMM subset implemented and tested on Metal; remaining NN operations pending           | P1 R6                 |
-| EXEC-04                       | GPU adapter, throughput mode (`dynamis-gpu-primitives`)                                               | Initial storage/arithmetic/GEMM subset implemented on 1.14.1 and tested on Metal; remaining NN operations pending | P1 R6                 |
+| EXEC-02 | GPU adapter, exact mode (vectrix-gpu on the DynamisGPU runtime) | Storage/arithmetic/batched GEMM, activations/norms/softmax/dropout and sum/norm gradients verified on Metal; indexing/RoPE/model construction gates pending | P1 R6 |
+| EXEC-04 | GPU adapter, throughput mode (`dynamis-gpu-primitives`) | Bounded neural primitives, batched GEMM and exact-tier semantic selections verified on Metal; remaining model/training operations pending | P1 R6 |
 | EXEC-05                       | GPU inference path: `PagedKvCache`, GPU `Sampler`, recorded decode steps (`GpuRecording`)             | Upstream pieces exist                                                                                             | P1 R5/R6              |
 | EXEC-03                       | Mixed precision and quantized execution policies                                                      | FP16/BF16 GEMM and quantized GEMM exist upstream; training support is request G-T9                                | P2 after R6           |
 | PERF-01                       | Worker scheduling, memory planning, fusion, recomputation                                             | Initial benchmarks exist; optimizations planned                                                                   | P2 R7                 |
@@ -215,7 +216,7 @@ RNN/LSTM/GRU cells/sequences/examples, token generation, and optional byte-level
 BPE, neutral GGUF/safetensors readers and explicit pretrained mappings are implemented.
 The optional standard Llama adapter and first real checkpoint CPU validation are
 also implemented. Next add branched/residual builders, expanded GPU numerical coverage,
-GPU model inference, additional family adapters, and
+GPU logic/indexing/RoPE and model inference, additional family adapters, and
 sequence-data packing/streaming. Preserve separate correctness and performance
 milestones for real-model inference and LM training. Keep nonlinear classifiers
 and caller-configured causal models as consumer API tests.
