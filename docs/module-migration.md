@@ -24,6 +24,8 @@ that transitively exposes the CPU framework. GPU dependencies remain opt-in.
 | `nnjava-backend-vectrix` | `org.dynamisengine.nn.backend.vectrix` |
 | `nnjava-nn` | `org.dynamisengine.nn.layers` |
 | `nnjava-transformer` | `org.dynamisengine.nn.transformer` |
+| `nnjava-generation` | `org.dynamisengine.nn.generation` |
+| `nnjava-tokenizers` | `org.dynamisengine.nn.tokenizers` |
 | `nnjava-data` | `org.dynamisengine.nn.data` |
 | `nnjava-io` | `org.dynamisengine.nn.io` |
 | `nnjava-training` | `org.dynamisengine.nn.training` |
@@ -32,8 +34,9 @@ that transitively exposes the CPU framework. GPU dependencies remain opt-in.
 | `nnjava-examples` | `org.dynamisengine.nn.examples` |
 | `nnjava-backend-vectrix-gpu` | `org.dynamisengine.nn.backend.gpu` |
 
-Integration tests and JMH are separate development modules. Generation and
-tokenizer modules will be introduced with their implementations.
+Integration tests and JMH are separate development modules. Generation is included
+in the CPU starter; tokenizers remain an explicit optional dependency. The
+[generation guide](generation-guide.md) documents their initial APIs and boundaries.
 
 ## Provider and persistence changes
 

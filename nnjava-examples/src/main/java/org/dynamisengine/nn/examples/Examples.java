@@ -18,6 +18,7 @@ public final class Examples {
             System.out.println("rnn                Vanilla recurrent short-sequence recall, validation and resume");
             System.out.println("lstm               LSTM delayed recall, validation and resume");
             System.out.println("gru                GRU delayed recall, validation and resume");
+            System.out.println("text-generation    Byte-level BPE, tiny decoder training, token sampling and Unicode streaming");
             return;
         }
         switch (args[0]) {
@@ -30,6 +31,7 @@ public final class Examples {
             case "rnn" -> RecurrentTrainingExample.run(org.dynamisengine.nn.nn.RecurrentCell.Kind.RNN);
             case "lstm" -> RecurrentTrainingExample.run(org.dynamisengine.nn.nn.RecurrentCell.Kind.LSTM);
             case "gru" -> RecurrentTrainingExample.run(org.dynamisengine.nn.nn.RecurrentCell.Kind.GRU);
+            case "text-generation" -> TextGenerationExample.main(new String[0]);
             default -> throw new IllegalArgumentException("Unknown example: " + args[0] + "; use --list");
         }
     }

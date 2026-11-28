@@ -11,10 +11,14 @@ architectures, task-specific data preparation, and training recipes belong here.
 Production modules must not depend on examples.
 
 Current runner entries include `linear-regression`, `transformer` (direct component
-composition), `mlp-xor`, `causal-lm`, `autoencoder`, `cnn`, `rnn`, `lstm`, and `gru`. All have CPU smoke
+composition), `mlp-xor`, `causal-lm`, `autoencoder`, `cnn`, `rnn`, `lstm`, `gru`,
+and `text-generation`. All have CPU smoke
 tests. Fluent models cover definition/state restore; the decoder checks caching,
 and autoencoder/CNN examples compare resumed and uninterrupted training. See the
 [builder API guide](model-builders.md) and [CNN guide](cnn-guide.md).
+The text fixture trains a byte-BPE decoder, generates `hi 😀`, and checks streamed
+Unicode/EOS behavior through the [generation API](generation-guide.md). It is not
+a pretrained-model or corpus pretraining benchmark.
 
 ## Architecture catalog and order
 

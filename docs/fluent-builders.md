@@ -9,7 +9,8 @@ Implemented now: sequential/Linear and causal-language-model definitions, named
 NN builders, decoder configuration, custom-layer decoder hooks, checked definition
 files, CNN convolution/pooling, RNN/LSTM/GRU cells/sequences, and CPU cache sessions. The [API guide](model-builders.md) documents exact
 behavior and runnable examples. Trainer APIs are described in the
-[training guide](training-guide.md); generation builders remain proposed.
+[training guide](training-guide.md); initial generation and byte-level tokenizers
+are documented in the [generation guide](generation-guide.md).
 
 ## Builder layers
 
@@ -139,9 +140,11 @@ dependencies of model construction.
 
 The [LLM roadmap](llm-roadmap.md) defines generation-session syntax, tokenizer and
 weight-loading contracts, pretraining/SFT/LoRA builders, and their delivery order.
-Generation settings are separate reusable definitions. A generation session borrows
-model weights and owns its cache, sampling state, and temporary resources; it lives
-in generation so transformer does not acquire a reverse dependency.
+Generation settings are separate reusable definitions. The implemented generation
+session borrows model weights; each request owns and closes a fresh cache and
+restarts its configured Philox stream. It lives in generation so transformer does
+not acquire a reverse dependency. Initial generation uses explicit host sampling;
+resident GPU sampling, batching, and shared prefixes remain extensions.
 
 ## Implemented training builders
 

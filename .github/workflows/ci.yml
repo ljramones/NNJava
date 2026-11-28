@@ -38,8 +38,7 @@ jobs:
           fi
       - name: Verify standalone consumer
         run: |
-          mvn -B -f examples/consumer/pom.xml compile exec:java
-          mvn -B -f examples/inference-consumer/pom.xml compile
+          mvn -B -f examples/pom.xml verify
           python3 tools/verify_module_consumers.py
 
   gpu-portable:

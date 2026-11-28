@@ -35,13 +35,19 @@ def run(module, paths, *arguments, native=False):
 numerics = [artifact(name, "4.1.0") for name in ("vectrix-core", "vectrix-ml")]
 training = [artifact(name, "0.1.0-SNAPSHOT") for name in
             ("neuralnetworks", "nnjava", "nnjava-core", "nnjava-nn", "nnjava-transformer",
-             "nnjava-data", "nnjava-io", "nnjava-training", "nnjava-backend-vectrix")]
+             "nnjava-data", "nnjava-io", "nnjava-training", "nnjava-generation", "nnjava-backend-vectrix")]
 run("example.nnjava.training/example.LibraryConsumer",
     [root / "examples/consumer/target/classes", *training, *numerics])
 inference = [artifact(name, "0.1.0-SNAPSHOT") for name in
              ("nnjava-core", "nnjava-nn", "nnjava-transformer", "nnjava-io", "nnjava-backend-vectrix")]
 run("example.nnjava.inference/example.InferenceConsumer",
     [root / "examples/inference-consumer/target/classes", *inference, *numerics])
+generation = [artifact(name, "0.1.0-SNAPSHOT") for name in
+              ("nnjava-generation", "nnjava-core", "nnjava-nn", "nnjava-transformer", "nnjava-backend-vectrix")]
+run("example.nnjava.generation/example.GenerationConsumer",
+    [root / "examples/generation-consumer/target/classes", *generation, *numerics])
+run("example.nnjava.tokenizers/example.TokenizerConsumer",
+    [root / "examples/tokenizer-consumer/target/classes", artifact("nnjava-tokenizers", "0.1.0-SNAPSHOT")])
 if args.gpu_metal:
     gpu = [artifact(name, "0.1.0-SNAPSHOT") for name in ("nnjava-core", "nnjava-backend-vectrix-gpu")]
     gpu += [artifact("vectrix-gpu", "4.1.0"), *numerics]

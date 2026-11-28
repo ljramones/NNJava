@@ -15,6 +15,16 @@
         <dependencies>
             <dependency>
                 <groupId>org.dynamisengine</groupId>
+                <artifactId>nnjava-generation</artifactId>
+                <version>${nnjava.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dynamisengine</groupId>
+                <artifactId>nnjava-tokenizers</artifactId>
+                <version>${nnjava.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dynamisengine</groupId>
                 <artifactId>nnjava-backend-vectrix-gpu</artifactId>
                 <version>${nnjava.version}</version>
             </dependency>

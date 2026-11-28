@@ -10,7 +10,8 @@ The [migration guide](module-migration.md) records JPMS names and current GPU li
 
 Implemented artifacts use `org.dynamisengine` and one coordinated NNJava version.
 The root is the `nnjava-parent` Maven aggregator. Generation and tokenizer modules
-remain planned; the optional GPU adapter implements the subset in the migration guide.
+now have initial implementations; see the [generation guide](generation-guide.md).
+The optional GPU adapter implements the subset in the migration guide.
 
 | Artifact                     | Responsibility                                                                                                                               | Internal dependencies                                                                                                                  |
 |------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
@@ -55,8 +56,11 @@ GPU matrices from those descriptors, keeping io independent of the GPU adapter.
 The [LLM roadmap](llm-roadmap.md) defines the capability and acceptance sequence.
 The first NN/LM builders live in nn/transformer, while neutral `ComponentSpec`
 trees live in core and `ModelDefinitions` file IO stays backend-neutral in io.
-CPU decoder cache sessions are in transformer; future generation orchestration
-will compose them without a reverse dependency.
+CPU decoder cache sessions are in transformer; generation composes them without a
+reverse dependency. Its initial host sampler directly uses the Vectrix core/ml
+kernel artifacts with the selected scalar/SIMD classifiers, without depending on
+the concrete CPU adapter. Tokenizers depend only on java.base and remain an
+explicit optional artifact; the CPU starter includes generation.
 
 ## Dependency cuts required by current code
 

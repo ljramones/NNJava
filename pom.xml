@@ -27,6 +27,8 @@
         <module>nnjava-backend-vectrix</module>
         <module>nnjava-nn</module>
         <module>nnjava-transformer</module>
+        <module>nnjava-generation</module>
+        <module>nnjava-tokenizers</module>
         <module>nnjava-data</module>
         <module>nnjava-io</module>
         <module>nnjava-training</module>
@@ -38,6 +40,16 @@
     </modules>
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.dynamisengine</groupId>
+                <artifactId>nnjava-generation</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dynamisengine</groupId>
+                <artifactId>nnjava-tokenizers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.dynamisengine</groupId>
                 <artifactId>nnjava-backend-vectrix-gpu</artifactId>

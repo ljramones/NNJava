@@ -1,0 +1,63 @@
+{
+  "date": "2026-11-27",
+  "baseline": "2e7a76a",
+  "targets": {"jdk": "25", "vectrix": "4.1.0", "dynamisgpu": "1.14.1"},
+  "modules": {
+    "nnjava-generation": "org.dynamisengine.nn.generation",
+    "nnjava-tokenizers": "org.dynamisengine.nn.tokenizers"
+  },
+  "implemented": [
+    "Single-request token generation with owned cursors, greedy/seeded host sampling, penalties, processors, stop IDs/sequences and log probabilities",
+    "Vectrix Sampler/Philox composition with top-p normalized inside top-k, stable temperature scaling and explicit banned-token handling",
+    "Synchronous streaming, cooperative cancellation, cache cleanup on all exits and immutable versioned configuration",
+    "Optional pure-Java tokenizer SPI, complete byte alphabet/BPE, vocabulary/special metadata, explicit normalization/pre-tokenization and incremental UTF-8 decoding",
+    "CPU starter/BOM integration, dedicated minimal JPMS consumers and CI consumer coverage",
+    "A public tiny-decoder text-generation workflow with merged BPE tokens, split Unicode bytes and EOS"
+  ],
+  "checks": [
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks clean verify",
+      "status": "passed", "tests": 216, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Pgpu,metal install",
+      "status": "passed", "tests": 216, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal",
+      "status": "passed",
+      "consumers": ["training", "model-only NN/CNN/RNN/LM inference", "generation without tokenizer/training/data/IO", "tokenizer without model/numerical modules", "exact Metal", "throughput Metal"],
+      "device": "Apple M4 Max"
+    }
+  ],
+  "new_tests": {"generation_unit": 24, "tokenizer_unit": 16, "real_model_and_text_integration": 7, "example_smoke": 1},
+  "validation": [
+    "Known independent sampling distributions, temperature/top-k/top-p, log probabilities, first-index ties, zero-probability bans and extreme finite logits",
+    "EOS/minimum/sequence stops, repetition/presence/frequency penalties, callback and cross-thread cancellation with no extra accepted decode",
+    "Prompt/history/configuration immutability, provider protocol validation, reentrancy and callback/decode cleanup",
+    "Optimized BPE compared with an independent rescan oracle on 300 generated inputs, leftmost ties and stale-pair removal",
+    "Explicit special controls, Unicode normalization, surrogate rejection, lossless pre-tokenization and malformed/incomplete UTF-8 behavior",
+    "Real cached-model greedy IDs, sampled IDs and log probabilities compared with full-sequence execution",
+    "Model mode/tape/stale-weight guards and rollback at every partial cache-construction allocation",
+    "Generation configuration file round trip and optional incremental Unicode streaming"
+  ],
+  "text_example": {
+    "text": "hi 😀", "initial_cross_entropy": 5.579656, "final_cross_entropy": 0.000857,
+    "updates": 150, "stop_reason": "STOP_TOKEN",
+    "streamed_text_equals_whole_decode": true
+  },
+  "limits": [
+    "Initial generation uses host logits/sampling and one sequence per request; the main causal adapter remains CPU-only",
+    "Each request starts a fresh cursor and Philox stream; persistent conversations/prefix sharing and continuous batching are later features",
+    "Every emitted token, including EOS/final budget token, is appended to the cursor before its callback",
+    "Tokenizer and generation are separate; pretrained vocabulary/merge/normalization compatibility remains caller/provider responsibility",
+    "Configured byte-level BPE and the UTF-8 provider do not imply GPT-2/Llama tokenizer-file or SentencePiece compatibility",
+    "Custom hook state is not serialized by GenerationConfig",
+    "The tiny learned text fixture is correctness evidence, not real pretrained-model throughput or corpus training evidence",
+    "The standalone GGUF/Metal experiment retains its independent private runtime and tokenizer contracts"
+  ]
+}

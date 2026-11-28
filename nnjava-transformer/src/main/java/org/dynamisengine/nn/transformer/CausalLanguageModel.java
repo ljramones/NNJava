@@ -45,6 +45,8 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
 
     public static Builder builder() { return new Builder(); }
     public Definition definition() { ensureOpen(); return definition; }
+    /** Borrowed execution context, for adapters using this model's public inference API. */
+    public ExecutionContext executionContext() { ensureOpen(); return context; }
     @Override public Tensor forward(Tensor tokens) { return forward(tokens, null); }
     public Tensor forward(Tensor tokens, Tensor allowed) {
         validateTokens(tokens);

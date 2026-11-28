@@ -88,10 +88,10 @@ and benchmarks. `nnjava-examples` is a first-class reactor module, with the
 [classical architecture catalog](examples.md) covering MLP, CNN, RNN, LSTM, GRU,
 autoencoder, residual, and transformer examples.
 
-Add `nnjava-generation` for token-based inference orchestration and optional
-`nnjava-tokenizers` for text/token conversion. Neither requires training; generation
-accepts token IDs without a tokenizer dependency. Introduce these modules with
-their implementations rather than empty placeholders.
+`nnjava-generation` now supplies token-based inference orchestration and
+`nnjava-tokenizers` supplies optional byte-level BPE/text conversion. Neither
+requires training; generation accepts token IDs without a tokenizer dependency.
+Both modules were introduced with working implementations and isolated consumers.
 
 The [multi-module design](modules.md) defines responsibilities and dependency
 arrows, including two necessary cuts: core must stop importing a concrete backend,
@@ -115,8 +115,9 @@ validation/ownership rules. NN and causal-model construction are implemented;
 Trainer, optimizer definitions, loader builders, weighted evaluation, callbacks,
 stopping, and loop checkpoints are implemented; see the [training guide](training-guide.md).
 CNN and recurrent construction are documented in the [CNN guide](cnn-guide.md)
-and [recurrent guide](recurrent-guide.md). Generation and branched builders remain
-proposed; broader recurrent variants are later extensions.
+and [recurrent guide](recurrent-guide.md). Initial generation and byte-level BPE
+are documented in the [generation guide](generation-guide.md). Branched builders,
+additional tokenizer formats, and broader recurrent variants remain extensions.
 
 ## LLM capability track
 
@@ -161,9 +162,9 @@ its planned builder or orchestration API already exists.
 | LM-04                         | Encoder/encoder-decoder, cross-attention, pooling/readout composition                                 | Planned architecture expansion                                                                                    | P2 R5 L6              |
 | LM-05                         | LoRA selection/configuration, adapter save/load, merge/unmerge                                        | Planned; frozen-base and gradient checks required                                                                 | P1 R5 L4              |
 | LM-06                         | Position schemes, rotary scaling, sliding windows, context validation                                 | RoPE/base and causal/explicit masks exposed; scaling/window policies planned                                                 | P1 R5 L1/L5           |
-| LM-07                         | Greedy/sampled generation, logits processors, stops, streaming, cancellation                          | Planned token-based generation API                                                                                | P0 R5 L2              |
+| LM-07 | Greedy/sampled generation, logits processors, stops, streaming, cancellation | Implemented single-sequence host sampling, penalties, token stops, streaming/cancellation, log probabilities and reusable schemas | P0 R5 L2 |
 | LM-08                         | Batched/paged inference, prefix sharing, continuous batching, memory limits                           | Upstream paged cache exists; orchestration planned                                                                | P1 R5 L2/L5           |
-| LM-09                         | Tokenizer SPI, incremental decoding, optional BPE/SentencePiece providers                             | Planned; application-supplied implementations supported                                                           | P1 R5 L2              |
+| LM-09 | Tokenizer SPI, incremental decoding, optional BPE/SentencePiece providers | Implemented SPI, configurable byte-level BPE, normalization/pre-tokenization and UTF-8 streaming; pretrained format readers and SentencePiece remain planned | P1 R5 L2 |
 | LM-10                         | Causal-LM pretraining: shifted labels, token masks, packed document boundaries, token-normalized loss | Generic training primitives exist; LM workflow planned                                                            | P0 R5 L3              |
 | LM-11                         | Supervised fine-tuning with token loss masks and selected trainable parameters                        | Planned; recipes/data remain caller-defined                                                                       | P1 R5 L4              |
 | LM-12                         | QLoRA with frozen quantized base and trainable adapters                                               | Planned; quantized backward and precision prerequisites                                                           | P2 R5 L5              |
@@ -210,10 +211,9 @@ behavior and keep release gates explicit.
 
 The module/provider foundation, CPU migration, first NN/LM builders, definition
 persistence, CPU cache sessions, supervised Trainer/data APIs, CPU CNN support,
-and RNN/LSTM/GRU cells/sequences/examples are implemented. Next add reusable
-generation/tokenizer APIs, branched/residual builders, expanded GPU numerical
-coverage, sequence-data packing/streaming, and
-prepare the general-purpose real-model loading path
-with independent correctness gates. Preserve
-separate milestones for real-model inference and LM training. Use a nonlinear
-classifier and a caller-configured causal language model as consumer API tests.
+RNN/LSTM/GRU cells/sequences/examples, token generation, and optional byte-level
+BPE are implemented. Next add general pretrained weight/tokenizer loading,
+branched/residual builders, expanded GPU numerical coverage, and
+sequence-data packing/streaming. Preserve separate correctness and performance
+milestones for real-model inference and LM training. Keep nonlinear classifiers
+and caller-configured causal models as consumer API tests.

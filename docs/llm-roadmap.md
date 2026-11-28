@@ -5,11 +5,13 @@ executing, training, and adapting language models. Transformer primitives are
 the foundation; usable LLM support also needs generation, token data, weight
 loading, evaluation, and memory management.
 
-This is proposed scope. Existing CPU primitives are distinguished from planned
-APIs in the [main roadmap](roadmap.md). Implementation has resumed on Vectrix
-4.1.0 and DynamisGPU 1.14.1; the module/provider and initial GPU foundation are
-implemented. The LLM features below remain proposed work. DynamisGPU 1.15
-optimization results are not NNJava model-level validation.
+This document describes the full target scope. The [main roadmap](roadmap.md)
+distinguishes implemented and planned APIs. CPU configurable models, cache sessions,
+single-sequence generation, and optional byte-level BPE now have implementations;
+see the [generation guide](generation-guide.md). The main stack pins Vectrix 4.1.0
+and DynamisGPU 1.14.1. General pretrained loading, corpus workflows, adaptation,
+GPU model execution, and scale features remain separate milestones. The standalone
+GGUF/Metal experiment retains its own dependency and accuracy limits.
 
 ## Library and application responsibilities
 
@@ -59,7 +61,7 @@ that silently imply unsupported options.
   Speculative acceptance must preserve the selected target sampling distribution;
   each advanced strategy needs its own correctness and performance evidence.
 
-Put reusable generation orchestration in proposed `nnjava-generation`. It consumes
+Reusable single-sequence generation orchestration now lives in `nnjava-generation`. It consumes
 the public transformer interfaces without a reverse dependency or server framework.
 HTTP endpoints, chat sessions, tools, retrieval, and application scheduling remain
 consumer concerns. CPU generation has the same public contract as GPU generation;
@@ -156,7 +158,7 @@ files are supplied explicitly for hardware/integration runs.
 
 Model, generation, tokenizer, loading, training, and adapter builders should compose.
 Keep generation settings separate from architecture definitions and training state.
-For example, this is proposed API syntax, not an implemented entry point:
+For example, this token-based CPU API is implemented:
 
 ```java
 try (var session = GenerationSession.builder()
@@ -165,11 +167,16 @@ try (var session = GenerationSession.builder()
         .maxNewTokens(256)
         .stopTokenIds(eosTokenId)
         .build()) {
-    session.generate(promptTokenIds, tokenId -> output.accept(tokenId));
+    session.generate(promptTokenIds, token -> {
+        output.accept(token.tokenId());
+        return GenerationSession.Decision.CONTINUE;
+    });
 }
 ```
 
-The session borrows model weights and owns its cache, sampling state, and temporary
-resources. Its device comes from the model. Text encoding/decoding can wrap this
-token API without becoming a mandatory dependency. Advanced callers retain direct
-forward calls, custom training loops, and custom components.
+The session borrows model weights; each request owns and closes a fresh cache.
+The initial sampler uses host logits and Vectrix kernels/Philox, with a new
+counter-based stream per request. GPU-resident sampling remains follow-on work.
+Text encoding/decoding wraps this token API without becoming a mandatory
+dependency. Advanced callers retain direct forward/cache calls, custom loops,
+and custom components.
