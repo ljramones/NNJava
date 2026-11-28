@@ -10,7 +10,7 @@
         <nnjava.version>0.1.0-SNAPSHOT</nnjava.version>
         <vectrix.version>4.1.0</vectrix.version>
         <dynamisgpu.version>1.14.1</dynamisgpu.version>
-        <jackson.version>2.20.2</jackson.version>
+        <jackson.version>2.21.7</jackson.version>
     </properties>
     <dependencyManagement>
         <dependencies>
