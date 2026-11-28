@@ -93,17 +93,21 @@ Implemented coverage:
   elementwise kernels handle views through rank four directly.
 - Activation, softmax/log-softmax, LayerNorm/RMSNorm and dropout forward/backward
   operations; sums, broadcast-gradient reductions and robust Euclidean norms.
+- FP32/INT32/BOOL comparisons, casts, masks and selection; `all` and finite checks.
+- General gather/scatter, concatenation and slice gradients, first-winner max/argmax
+  and max gradients; exact RoPE forward/backward in both modes.
 
 The adapter exposes selected kernel tiers and per-operation accuracy contracts.
 It rejects unsupported operations/layouts before submission and never
 performs implicit CPU numerical fallback. Explicit host readbacks may unpack a
 view from its allocation on the host.
 
-Public logic/masks/indexing, embedding gather/scatter, RoPE, general max/argmax,
-stateful optimizers, cross-entropy, normal initialization and FP16/BF16 computation
+Stateful optimizers, cross-entropy, normal initialization and FP16/BF16 computation
 remain unsupported through this adapter. These gates must pass before claiming
 complete model inference or Trainer workflows. See [GPU neural operations](gpu-neural-operations.md)
 for the tested compositions, row limits and tier choices.
+The [tensor-operation guide](gpu-tensor-operations.md) adds embedding/rotary/masked
+GQA gradient checks, layout semantics and invalid-index completion behavior.
 Per-step arenas, replay, paged caches, and sampling are subsequent integration work.
 
 Native runtimes are supplied by the application. DynamisGPU 1.14.1's native jars
@@ -120,11 +124,16 @@ This release integration detail should be addressed upstream in future descripto
 
 ## Verification evidence
 
-The [2026-11-27 verification record](evidence/modular-verification-2026-11-27.json)
+The [initial 2026-11-27 verification record](evidence/modular-verification-2026-11-27.json)
 reports 66 passing tests: 59 CPU/core checks, two portable completion checks, and
 five Metal hardware tests exercising both modes. Scalar and SIMD reactors pass;
 standalone training, model-only JPMS, and both GPU JPMS consumers pass. JMH
 packaging/listing also passes. No new model-throughput benchmark is claimed.
+
+The subsequent [GPU tensor-operation record](evidence/gpu-tensor-2026-11-27.json)
+covers 288 passing tests, including the neural/indexing/rotary extensions and both
+installed Metal consumers. It retains the distinction between operation coverage
+and complete model inference.
 
 ## Verification commands
 
@@ -140,8 +149,9 @@ mvn -f examples/pom.xml -Pgpu verify      # also compile standalone GPU consumer
 python3 tools/verify_module_consumers.py --gpu-metal
 ```
 
-The final command runs format-only, training, model-only, generation-only and
-tokenizer-only module-path consumers, then checks GPU provider discovery and GEMM
+The final command runs format-only, training, model-only, generation-only,
+tokenizer-only and pretrained module-path consumers, then checks GPU provider
+discovery, GEMM, neural forward/backward/updates and embedding/rotary/masked attention
 in both modes. Without `--gpu-metal`, it runs the CPU consumers. Hardware profiles fail on absent devices; portable
 GPU builds skip hardware tests explicitly. Local Metal evidence does not establish
 Vulkan/MoltenVK coverage or real-model throughput.

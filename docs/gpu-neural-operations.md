@@ -96,10 +96,11 @@ profiles explicitly require their selected device. Vulkan remains unverified her
 
 ## Next GPU gates
 
-Full generic transformer inference still needs public mask/logic/index operations,
-embedding gather/scatter, RoPE, and a construction/loading policy that avoids the
-currently unsupported GPU normal initializer. General max/argmax and other
-reduction/indexing extensions remain. Stateful optimizers, cross-entropy, GPU
+Public mask/logic/index operations, embedding gather/scatter, RoPE,
+general max/argmax and concat/slice gradients are now implemented in the subsequent
+[GPU tensor-operation batch](gpu-tensor-operations.md), including masked GQA gradients.
+A construction/loading policy that avoids the currently unsupported GPU normal
+initializer and full inference orchestration remain. Stateful optimizers, cross-entropy, GPU
 convolution/pooling, mixed-precision computation and broader training support also
 remain separate work.
 

@@ -6,6 +6,7 @@ module org.dynamisengine.nn.backend.gpu {
     requires transitive org.dynamisengine.gpu.api;
     requires org.dynamisengine.gpu.primitives;
     requires org.dynamisengine.vectrix.compute;
+    requires org.dynamisengine.vectrix.ml;
     exports org.dynamisengine.nn.backend.gpu;
     uses org.dynamisengine.gpu.api.compute.GpuProvider;
     provides org.dynamisengine.nn.backend.BackendProvider

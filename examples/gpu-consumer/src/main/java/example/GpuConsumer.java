@@ -27,6 +27,7 @@ public final class GpuConsumer {
                 throw new AssertionError("GPU matrix product differs");
             }
             neuralWorkflow(context);
+            attentionWorkflow(context);
             System.out.println("GPU module-path consumer passed: " + context.device());
         }
     }
@@ -56,5 +57,30 @@ public final class GpuConsumer {
         }
         context.synchronize();
         if (context.liveAllocations() != before) { throw new AssertionError("GPU neural workflow leaked tensor allocations"); }
+    }
+
+    private static void attentionWorkflow(ExecutionContext context) {
+        int before = context.liveAllocations();
+        try (var table = context.tensor(new float[]{.1f, .2f, .3f, .4f, -.2f, .5f, .1f, -.3f, .7f, -.4f, .2f, .6f, -.1f, .3f, .8f, .2f}, Shape.of(4, 4), true);
+             var rawIds = context.tensor(new int[]{-1, 1, 2}, Shape.of(3)); var zeroId = context.tensor(new int[]{0}, Shape.of());
+             var valid = Ops.greater(rawIds, zeroId); var ids = Ops.where(valid, rawIds, zeroId);
+             var positionTable = context.tensor(new int[]{0, 2, 4, 6}, Shape.of(4)); var positions = Ops.gather(positionTable, 0, ids);
+             var allowed = context.tensor(new boolean[]{true, false, false, true, true, false, true, true, true}, Shape.of(3, 3));
+             var excluded = context.full(Shape.of(), Float.NEGATIVE_INFINITY); var tape = context.gradientTape();
+             var embedding = Ops.gather(table, 0, ids); var heads = Ops.reshape(embedding, Shape.of(1, 1, 3, 4));
+             var query = Ops.rope(heads, positions, 10000, true); var key = Ops.transpose(query);
+             var product = Ops.matmul(query, key); var scores = Ops.scale(product, .5f); var masked = Ops.where(allowed, scores, excluded);
+             var probabilities = Ops.softmax(masked, -1); var output = Ops.matmul(probabilities, heads);
+             var square = Ops.square(output); var loss = Ops.mean(square)) {
+            tape.backward(loss);
+            try (var gradient = table.gradient(); var finite = Ops.isFinite(gradient); var all = Ops.all(finite); var next = Ops.argmax(output, -1, false)) {
+                if (!all.toBooleanArray()[0]) { throw new AssertionError("GPU attention embedding gradient is not finite"); }
+                if (next.toIntArray().length != 3) { throw new AssertionError("GPU argmax output shape differs"); }
+            }
+            float[] values = probabilities.toFloatArray();
+            if (values[0] != 1 || values[1] != 0 || values[2] != 0) { throw new AssertionError("GPU causal attention mask differs"); }
+        }
+        context.synchronize();
+        if (context.liveAllocations() != before) { throw new AssertionError("GPU attention workflow leaked tensor allocations"); }
     }
 }

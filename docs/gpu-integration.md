@@ -126,8 +126,10 @@ Hardware runs:
   and end-to-end costs; DynamisGPU's profiling already labels each dispatch.
 
 The current [GPU neural-operation adapter](gpu-neural-operations.md) adds neural
-functions, sums/norms, batched GEMM and gradient compositions on Metal. Full GPU
-model construction/indexing/RoPE and inference orchestration remain subsequent gates.
+functions, sums/norms, batched GEMM and gradient compositions on Metal. The
+[tensor adapter](gpu-tensor-operations.md) adds masks, indexing, RoPE and verified
+embedding/masked GQA gradients. Full GPU model construction/loading and inference
+orchestration remain subsequent gates.
 
 ## History
 

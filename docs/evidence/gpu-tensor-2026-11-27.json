@@ -1,0 +1,75 @@
+{
+  "date": "2026-11-27",
+  "baseline": "8cc3afb",
+  "targets": {"jdk": "25", "vectrix": "4.1.0", "dynamisgpu": "1.14.1"},
+  "device": "Apple M4 Max, native Metal",
+  "modes": ["vectrix-gpu-exact", "dynamis-gpu-throughput"],
+  "added_operations": [
+    "CAST", "EQUAL", "LESS", "GREATER", "AND", "OR", "NOT", "WHERE", "IS_FINITE", "ALL",
+    "GATHER", "SCATTER_ADD", "CONCAT", "SLICE_BACKWARD", "REDUCE_MAX", "ARGMAX", "MAX_BACKWARD",
+    "ROPE", "ROPE_BACKWARD"
+  ],
+  "checks": [
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks verify",
+      "status": "passed", "tests": 288, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Pgpu,metal install",
+      "status": "passed", "tests": 288, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal",
+      "status": "passed",
+      "consumers": [
+        "formats", "training", "inference", "generation", "tokenizers", "pretrained self-test",
+        "exact Metal neural and embedding/rotary/masked attention workflows",
+        "throughput Metal neural and embedding/rotary/masked attention workflows"
+      ],
+      "gpu_module_path": "GPU consumer, core, GPU adapter and published numerical/native modules; no CPU backend, layer, transformer, training or data modules"
+    }
+  ],
+  "reactor_test_counts": {
+    "core": 5, "formats": 11, "generation": 24, "tokenizers": 26,
+    "pretrained": 4, "integration": 171, "examples": 8, "gpu_adapter": 39,
+    "total": 288,
+    "new_gpu_hardware_tests": 16
+  },
+  "numerical_validation": [
+    "Exact CPU parity for FP32/INT32/BOOL comparisons and selection, NaN/infinity/signed-zero classification and high-rank mask broadcasts",
+    "All nine public word-type cast pairs, including Java saturation, NaN-to-int, signed zero and integers beyond exact FP32 representation",
+    "Boolean ALL with true/false/scalar/empty inputs; empty identity true",
+    "General gather across a strided source and multidimensional repeated strided indices; exact input/embedding gradients",
+    "Integer and Boolean gathers, scalar and empty indices, zero-filled empty scatter and serial cancellation order",
+    "Concat and stepped slice gradients, including empty parts, integer/Boolean copies and a direct negative-axis kernel contract",
+    "First-tie/first-NaN max and argmax, signed zero selection, and multi-axis max gradient layout restoration",
+    "RoPE forward/backward exact CPU bits for both pairing layouts, broadcast/scalar positions through Integer.MAX_VALUE and long offsets above 2^40",
+    "Supplied-weight embedding, RoPE and masked grouped-query attention: CPU output and embedding/value gradient parity, fully masked query rows zero",
+    "Ten invalid-index/negative-position scenarios across both modes report KERNEL_ERROR, including empty gather/scatter domains",
+    "Fourteen injected rotary scratch allocation failures across both modes release NNJava handles and aborted recordings",
+    "Independent module-path consumer uses device-produced token/position IDs, causal attention, autograd, finite-gradient ALL and argmax"
+  ],
+  "contracts": {
+    "word_and_index_tier": "DynamisGPU primitives with exact word or fixed serial FP32 contracts in both modes",
+    "rope_tier": "Vectrix GpuRope in both modes, requiring INT64; FP32-table throughput rotation does not silently replace public CPU semantics",
+    "gqa_composition": "Exact mode compares CPU bits; throughput mode uses fixture-relative tolerance 3e-4, not a whole-model bound",
+    "residency": "No token/explicit-position numerical readbacks; runtime error checks transfer small status reports",
+    "host_preparation": "Vectrix constructs rotary inverse frequencies; implicit positions and max row offsets derive from shape/caller metadata"
+  },
+  "limits": [
+    "No custom NNJava shaders, float atomics or implicit CPU numerical fallback",
+    "Exact numerical comparisons retain upstream subnormal/flush-to-zero limits",
+    "New tensor programs use FP32, INT32 and BOOL; FP16/BF16 remain storage types",
+    "RoPE requires an even positive feature dimension, base greater than one and INT64 device capability",
+    "Per-call plans, packing and dispatch overhead remain performance work",
+    "Full generic GPU transformer inference still needs model construction/loading and session integration",
+    "Normal initialization, cross-entropy, stateful optimizers, convolution/pooling and mixed-precision training remain separate GPU gates",
+    "Paged caches, GPU sampling, recorded decode and quantized placement are not integrated by this batch",
+    "Existing host mask helpers such as Masks.padding are unchanged",
+    "Vulkan, full GPU Trainer workflows and end-to-end model performance were not verified"
+  ]
+}

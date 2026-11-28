@@ -12,7 +12,9 @@ Both were prepared on 2026-11-25 in answer to the requests below; the status of 
 this document when either library releases.
 
 The adapter now implements FP32 activations, softmax/norms/dropout, sums/norms,
-batched GEMM and supported gradients in both modes. See [GPU neural operations](gpu-neural-operations.md)
+batched GEMM, word masks/casts, gather/scatter, concat/slice gradients, max/argmax,
+RoPE and supported gradients in both modes. See [GPU neural operations](gpu-neural-operations.md)
+and [GPU tensor operations](gpu-tensor-operations.md)
 for implemented layouts, semantic selections and remaining adapter gates. This
 coverage table describes upstream availability; it is not a claim that every row
 is already wired through NNJava.

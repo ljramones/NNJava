@@ -53,6 +53,7 @@ public final class GpuBackend implements Backend {
     private final Map<Operation, String> tiers = new LinkedHashMap<>();
     private final Map<Operation, AccuracyContract> contracts = new LinkedHashMap<>();
     private final GpuNeuralKernels neural;
+    private final GpuTensorKernels tensors;
     private GpuPointwise pointwise;
     private GpuBlasf blas;
     private GpuGemmf exactGemm;
@@ -65,6 +66,7 @@ public final class GpuBackend implements Backend {
         this.mode = Objects.requireNonNull(mode, "mode");
         device = new Device(mode == GpuMode.EXACT ? "vectrix-gpu-exact" : "dynamis-gpu-throughput", GpuProviders.key(gpu.adapter()));
         neural = new GpuNeuralKernels(this, gpu, mode);
+        tensors = new GpuTensorKernels(this, gpu);
     }
 
     private static boolean whole(KernelTensor tensor) {
@@ -103,7 +105,7 @@ public final class GpuBackend implements Backend {
         return Map.copyOf(tiers);
     }
 
-    /** FP32 numerical contracts for the last selected kernels, including exact-tier compositions. */
+    /** Numerical contracts for the last selected kernels, including exact-tier compositions. */
     public Map<Operation, AccuracyContract> accuracyContracts() { return Map.copyOf(contracts); }
 
     void selected(Operation operation, String tier, AccuracyContract contract) {
@@ -123,6 +125,11 @@ public final class GpuBackend implements Backend {
     public boolean supports(Operation operation, DType dtype) {
         if (operation == Operation.COPY) {
             return true;
+        }
+        if (GpuTensorKernels.handles(operation)) {
+            return GpuTensorKernels.supports(operation, dtype)
+                    && (operation != Operation.ROPE && operation != Operation.ROPE_BACKWARD
+                    || gpu.capabilities().dataTypes().contains(GpuCapabilities.INT64));
         }
         if (dtype != DType.FP32) {
             return false;
@@ -153,6 +160,7 @@ public final class GpuBackend implements Backend {
             return whole(source) && whole(call.output());
         }
         if (GpuNeuralKernels.handles(call.operation())) { return GpuNeuralKernels.supports(call); }
+        if (GpuTensorKernels.handles(call.operation())) { return GpuTensorKernels.supports(call); }
         if (call.inputs().stream().anyMatch(t -> t.buffer().dtype() != DType.FP32)
                 || !call.output().layout().isContiguous()) {
             return false;
@@ -188,7 +196,8 @@ public final class GpuBackend implements Backend {
         if (!supports(call)) {
             throw new UnsupportedOperationException("GPU " + mode + " does not support " + call.operation() + " for these types/layouts");
         }
-        if (call.output().layout().shape().elements() == 0) {
+        if (call.output().layout().shape().elements() == 0
+                && call.operation() != Operation.GATHER && call.operation() != Operation.SCATTER_ADD) {
             return Completion.completed();
         }
         return submit(encoder -> encode(encoder, call), () -> {
@@ -199,6 +208,7 @@ public final class GpuBackend implements Backend {
         Operation op = call.operation();
         KernelTensor out = call.output();
         if (GpuNeuralKernels.handles(op)) { neural.encode(encoder, call); return; }
+        if (GpuTensorKernels.handles(op)) { tensors.encode(encoder, call); return; }
         if (op == Operation.COPY) {
             copy(encoder, call.inputs().getFirst(), out);
             tiers.put(op, "DynamisGPU storage");
@@ -393,7 +403,11 @@ public final class GpuBackend implements Backend {
     }
 
     void fill(GpuCommandEncoder encoder, KernelTensor target, float value) {
-        if (target.layout().shape().elements() != 0) { try (var slice = range(target)) { encoder.fill(slice, Float.floatToRawIntBits(value)); } }
+        fillWord(encoder, target, Float.floatToRawIntBits(value));
+    }
+
+    void fillWord(GpuCommandEncoder encoder, KernelTensor target, int word) {
+        if (target.layout().shape().elements() != 0) { try (var slice = range(target)) { encoder.fill(slice, word); } }
     }
 
     void copy(GpuCommandEncoder encoder, KernelTensor source, KernelTensor target) {
@@ -579,7 +593,7 @@ public final class GpuBackend implements Backend {
         for (var allocation : Set.copyOf(allocations)) {
             allocation.close();
         }
-        for (AutoCloseable resource : new AutoCloseable[]{neural, throughputGemm, elementwise, exactGemm, blas, pointwise, gpu}) {
+        for (AutoCloseable resource : new AutoCloseable[]{tensors, neural, throughputGemm, elementwise, exactGemm, blas, pointwise, gpu}) {
             if (resource != null) {
                 try {
                     resource.close();

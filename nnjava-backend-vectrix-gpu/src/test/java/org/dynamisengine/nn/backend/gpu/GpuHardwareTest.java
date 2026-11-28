@@ -74,7 +74,8 @@ class GpuHardwareTest {
                     assertArrayEquals(new float[]{1, 16, 4, 25, 9, 36}, copied.toFloatArray());
                     assertArrayEquals(copied.toFloatArray(), view.toFloatArray());
                     try (var sum = Ops.sum(result)) { assertArrayEquals(new float[]{91}, sum.toFloatArray()); }
-                    assertThrows(UnsupportedOperationException.class, () -> Ops.max(result, 0, false));
+                    try (var max = Ops.max(result, 0, false)) { assertArrayEquals(new float[]{16, 25, 36}, max.toFloatArray()); }
+                    assertFalse(context.supports(org.dynamisengine.nn.backend.Operation.CROSS_ENTROPY, DType.FP32));
                     assertArrayEquals(new float[]{1, 4, 9, 16, 25, 36}, result.toFloatArray());
                 }
                 assertEquals(0, context.liveAllocations());
