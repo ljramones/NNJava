@@ -21,6 +21,7 @@
         <vectrix.classifier></vectrix.classifier>
         <nn.jvm.args></nn.jvm.args>
         <junit.version>5.11.0</junit.version>
+        <jackson.version>2.20.2</jackson.version>
     </properties>
     <modules>
         <module>nnjava-core</module>
@@ -28,6 +29,7 @@
         <module>nnjava-nn</module>
         <module>nnjava-transformer</module>
         <module>nnjava-generation</module>
+        <module>nnjava-formats</module>
         <module>nnjava-tokenizers</module>
         <module>nnjava-data</module>
         <module>nnjava-io</module>
@@ -40,6 +42,16 @@
     </modules>
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.dynamisengine</groupId>
+                <artifactId>nnjava-formats</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.dynamisengine</groupId>
                 <artifactId>nnjava-generation</artifactId>

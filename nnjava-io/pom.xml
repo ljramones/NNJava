@@ -9,6 +9,7 @@
     </parent>
     <artifactId>nnjava-io</artifactId>
     <dependencies>
+        <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-formats</artifactId></dependency>
         <dependency>
             <groupId>org.dynamisengine</groupId>
             <artifactId>nnjava-core</artifactId>

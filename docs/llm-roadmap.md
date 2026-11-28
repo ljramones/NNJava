@@ -9,7 +9,8 @@ This document describes the full target scope. The [main roadmap](roadmap.md)
 distinguishes implemented and planned APIs. CPU configurable models, cache sessions,
 single-sequence generation, and optional byte-level BPE now have implementations;
 see the [generation guide](generation-guide.md). The main stack pins Vectrix 4.1.0
-and DynamisGPU 1.14.1. General pretrained loading, corpus workflows, adaptation,
+and DynamisGPU 1.14.1. General weight/tokenizer readers are implemented; real checkpoint
+compatibility, corpus workflows, adaptation,
 GPU model execution, and scale features remain separate milestones. The standalone
 GGUF/Metal experiment retains its own dependency and accuracy limits.
 
@@ -88,10 +89,17 @@ unsupported device capabilities must be reported explicitly.
   of large weights in memory.
 - **LM-17:** explicit weight-name/layout mappings, embedding/readout aliases,
   selective loading, quantized-weight placement, and precision/kernel selection.
-  Keep format parsing backend-neutral in `nnjava-io`; a provider materializes its
+  Keep format parsing in backend-neutral `nnjava-formats` and model import in
+  `nnjava-io`; a provider materializes its
   arrays or GPU matrices from those descriptors and blocks.
 - Reuse upstream quantized formats and GEMM. Document the actual supported block
   types and device paths rather than claiming compatibility with every GGUF model.
+
+Initial IO-04/IO-05 and LM-17 infrastructure is implemented: mapped GGUF v3 and
+safetensors/shards, explicit checked name/transposed-layout/tied-weight mappings,
+and per-tensor staging. LM-09 includes GPT-2 files and a checked ByteLevel JSON
+subset. [Supported boundaries](pretrained-loading.md) are explicit; quantized
+placement, model-family adapters and real checkpoint acceptance remain pending.
 
 ### Training and adaptation
 

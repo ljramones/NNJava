@@ -1,1 +1,2 @@
 org.dynamisengine.nn.tokenizers.ByteTokenizerProvider
+org.dynamisengine.nn.tokenizers.Gpt2TokenizerProvider

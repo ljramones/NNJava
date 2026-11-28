@@ -11,6 +11,7 @@
         <module>inference-consumer</module>
         <module>generation-consumer</module>
         <module>tokenizer-consumer</module>
+        <module>formats-consumer</module>
     </modules>
     <profiles>
         <profile>

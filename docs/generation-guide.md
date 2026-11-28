@@ -10,7 +10,7 @@ provider discovery, and incremental UTF-8 decoding. Both target JDK 25.
 | Artifact | JPMS name | Dependencies |
 | --- | --- | --- |
 | `nnjava-generation` | `org.dynamisengine.nn.generation` | transformer/core/nn, Vectrix core/ml 4.1.0 for host sampling; no training, data, IO, tokenizer, or native dependency |
-| `nnjava-tokenizers` | `org.dynamisengine.nn.tokenizers` | java.base only |
+| `nnjava-tokenizers` | `org.dynamisengine.nn.tokenizers` | formats/Jackson Core for assets; no model/numerical modules |
 
 The BOM aligns both artifacts. The CPU starter includes generation. Tokenizers
 remain an explicit optional dependency, including for applications using the
@@ -168,7 +168,8 @@ independent rescan oracle and sampling against known distributions, then compare
 cached generation with full-model execution and verify lifecycle failures.
 
 This chunk supplies single-sequence host sampling and configurable byte-level BPE.
-GPU-resident sampling, batching/prefix sharing, beam/speculative decoding, SentencePiece,
-and pretrained tokenizer/weight-file readers remain separate work. The existing
+GPU-resident sampling, batching/prefix sharing, beam/speculative decoding and SentencePiece
+remain separate work. [Pretrained loading](pretrained-loading.md) now supplies general
+GGUF/safetensors readers, explicit mappings, GPT-2 files and a checked ByteLevel JSON subset. The existing
 GGUF/Metal experiment retains its model-specific tokenizer/runtime independently;
 its Llama pre-tokenization tables/cleanup have not been silently generalized here.

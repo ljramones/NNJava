@@ -2,6 +2,12 @@ package example;
 
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import org.dynamisengine.nn.formats.Safetensors;
+import org.dynamisengine.nn.io.WeightLoader;
+import org.dynamisengine.nn.nn.Linear;
 import org.dynamisengine.nn.io.ModelDefinitions;
 import org.dynamisengine.nn.io.StateArchive;
 import org.dynamisengine.nn.nn.NeuralNetwork;
@@ -18,6 +24,7 @@ import org.dynamisengine.nn.transformer.CausalLanguageModel;
 /** Fluent model definitions, archives and decoder sessions without training/data dependencies. */
 public final class InferenceConsumer {
     public static void main(String[] args) throws Exception {
+        verifyExternalWeights();
         var weights = Files.createTempFile("nnjava-inference-", ".nnj");
         var description = Files.createTempFile("nnjava-definition-", ".nnjd");
         var definition = CausalLanguageModel.builder().name("consumer-decoder").vocabularySize(5)
@@ -75,5 +82,21 @@ public final class InferenceConsumer {
                 System.out.println("Fluent NN/CNN/RNN/LM definitions, model-only/state restore and cached inference passed");
             }
         } finally { Files.deleteIfExists(weights); Files.deleteIfExists(description); }
+    }
+
+    private static void verifyExternalWeights() throws Exception {
+        var path = Files.createTempFile("nnjava-pretrained-", ".safetensors");
+        byte[] header = "{\"external.kernel\":{\"dtype\":\"F32\",\"shape\":[2,1],\"data_offsets\":[0,8]}}".getBytes(StandardCharsets.UTF_8);
+        try {
+            Files.write(path, ByteBuffer.allocate(8 + header.length + 8).order(ByteOrder.LITTLE_ENDIAN)
+                    .putLong(header.length).put(header).putFloat(2).putFloat(3).array());
+            try (var context = ExecutionContext.cpu(); var model = Linear.builder().inputFeatures(2).outputFeatures(1).bias(false).build(context);
+                 var file = Safetensors.open(path)) {
+                WeightLoader.builder().transpose("external.kernel", "weight").build().load(file, model);
+                try (var input = context.tensor(new float[]{4, 5}, Shape.of(1, 2)); var output = model.forward(input)) {
+                    if (output.toFloatArray()[0] != 23) { throw new AssertionError("Packaged safetensors weight mapping failed"); }
+                }
+            }
+        } finally { Files.deleteIfExists(path); }
     }
 }

@@ -20,9 +20,10 @@ The optional GPU adapter implements the subset in the migration guide.
 | `nnjava-nn`                  | Parameters, modules, layer configurations, dense networks, composition, and NN builders.                                                     | core                                                                                                                                   |
 | `nnjava-transformer`         | Attention, positional components, decoder/encoder building blocks, KV caches, and language-model builders.                                   | core, nn                                                                                                                               |
 | `nnjava-generation`          | Token-based generation, sampling/logits processors, inference sessions, streaming, and batching/cache orchestration.                         | core, nn, transformer; no training or tokenizer dependency                                                                             |
-| `nnjava-tokenizers`          | Optional text/token interfaces, incremental decoding, vocabulary/special-token metadata, and tokenizer providers.                            | No numerical or training modules required                                                                                              |
+| `nnjava-formats`             | Checked mapped GGUF/safetensors containers, shard indexes, neutral storage descriptors and shared JSON asset parsing.                         | Jackson Core; no core/model/numerical modules                                                                                           |
+| `nnjava-tokenizers`          | Optional text/token interfaces, incremental decoding, byte BPE asset imports, vocabulary/special-token metadata, and providers.                 | formats; no numerical, model or training modules                                                                                        |
 | `nnjava-data`                | Dataset/batch interfaces, deterministic loaders, masks, padding, packing, and data transforms.                                               | core                                                                                                                                   |
-| `nnjava-io`                  | Tensor archives, model definitions/state, GGUF/safetensors parsing, model-only save/load, codecs, and schema migration.                      | core, nn; no numerical backend dependency                                                                                              |
+| `nnjava-io`                  | Tensor archives, model definitions/state, explicit pretrained weight mappings, model-only save/load, codecs, and schema migration.           | core, nn, formats; no numerical backend dependency                                                                                     |
 | `nnjava-training`            | Losses, optimizers, schedules, metrics, Trainer, token-loss/adapter training helpers, callbacks, and full training checkpoint orchestration. | core, nn, data, io; transformer integration via public model interfaces                                                                |
 | `nnjava-backend-vectrix-gpu` | Optional GPU adapter with an exact mode (vectrix-gpu) and a throughput mode (`dynamis-gpu-primitives`), on the DynamisGPU runtime.           | core; `vectrix-gpu`, `dynamis-gpu-primitives`, `dynamis-gpu-api`. The application adds `dynamis-gpu-metal` and/or `dynamis-gpu-vulkan` |
 | `nnjava`                     | Convenience starter assembling the CPU framework for applications that want a single dependency.                                             | CPU capability modules above                                                                                                           |
@@ -53,13 +54,15 @@ Token generation adds generation; text handling can add tokenizers or use an
 application implementation. Transformer must not import generation. Format readers
 return neutral metadata/tensor/block descriptors; provider-specific loaders build
 GPU matrices from those descriptors, keeping io independent of the GPU adapter.
+Container parsing lives in formats so metadata and tokenizer assets can be read
+without loading core or model modules; see [pretrained loading](pretrained-loading.md).
 The [LLM roadmap](llm-roadmap.md) defines the capability and acceptance sequence.
 The first NN/LM builders live in nn/transformer, while neutral `ComponentSpec`
 trees live in core and `ModelDefinitions` file IO stays backend-neutral in io.
 CPU decoder cache sessions are in transformer; generation composes them without a
 reverse dependency. Its initial host sampler directly uses the Vectrix core/ml
 kernel artifacts with the selected scalar/SIMD classifiers, without depending on
-the concrete CPU adapter. Tokenizers depend only on java.base and remain an
+the concrete CPU adapter. Tokenizers depend on formats/Jackson Core and remain an
 explicit optional artifact; the CPU starter includes generation.
 
 ## Dependency cuts required by current code

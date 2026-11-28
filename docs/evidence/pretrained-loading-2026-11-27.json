@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-27",
+  "baseline": "8859e02",
+  "targets": {"jdk": "25", "vectrix": "4.1.0", "dynamisgpu": "1.14.1", "jackson_core": "2.20.2"},
+  "new_module": {"artifact": "nnjava-formats", "jpms": "org.dynamisengine.nn.formats", "numerical_dependencies": []},
+  "implemented": [
+    "Backend-neutral read-only mapped GGUF v3 and safetensors files with immutable tensor/storage descriptors",
+    "Local safetensors shard indexes with checked tensor ownership and directory boundaries",
+    "GGML quantized block descriptors and original bytes without native or numerical dependencies",
+    "Strict bounded UTF-8 JSON trees and GGUF metadata parsing, checked sizes/ranges/overlap/alignment",
+    "Fluent explicit pretrained weight names, matrix transposes, tied-storage aliases and source selection",
+    "Complete structural validation before parameter writes, per-tensor staging and explicit F16/BF16 storage expansion into FP32 parameters",
+    "Owned host snapshots for F32/F16/BF16/I32/BOOL independent of the mapped file lifetime",
+    "GPT-2 vocab.json/merges.txt and a checked Hugging Face ByteLevel BPE tokenizer.json subset",
+    "File tokenizer provider registration on both class and module paths",
+    "BOM/starter integration and independent format, weight-import and tokenizer-file consumers"
+  ],
+  "checks": [
+    {"command": "mvn -o -q -Psimd,gpu,metal,benchmarks clean verify", "status": "passed", "tests": 243, "failures": 0, "errors": 0, "skipped": 0},
+    {"command": "mvn -o -q -Pgpu,metal install", "status": "passed", "tests": 243, "failures": 0, "errors": 0, "skipped": 0},
+    {"command": "mvn -o -q -Psimd,gpu,metal,benchmarks verify", "status": "passed", "tests": 243, "failures": 0, "errors": 0, "skipped": 0, "note": "Final pass after explicit UTF-8 decoding regression assertion"},
+    {"command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify", "status": "passed"},
+    {"command": "python3 tools/verify_module_consumers.py --gpu-metal", "status": "passed", "device": "Apple M4 Max"},
+    {"command": "python3 tools/verify_module_consumers.py", "status": "passed", "note": "Repeated against the final installed UTF-8 parser"}
+  ],
+  "test_counts": {
+    "core": 5, "formats": 11, "generation": 24, "tokenizers": 22,
+    "integration": 166, "examples": 8, "gpu_adapter": 7, "total": 243,
+    "new_format_tests": 11, "new_tokenizer_asset_tests": 6, "new_weight_integration_tests": 10
+  },
+  "standalone_consumers": [
+    "Container parsing without core, model or numerical modules",
+    "Training and checkpoint restore",
+    "Model-only NN/CNN/RNN/LM inference plus explicit transposed safetensors import without training/data",
+    "Generation without tokenizer/training/data/IO/formats",
+    "GPT-2 file loading/provider discovery without model or numerical modules",
+    "Exact Metal provider GEMM",
+    "Throughput Metal provider GEMM"
+  ],
+  "validation": [
+    "Mapped lifetime invalidation and detached descriptor/snapshot ownership",
+    "Container duplicates, invalid shapes/counts/types, overflow, overlap, gaps, truncation and alignment",
+    "Shard traversal and escaping symlinks, absent and unindexed tensors, complete shard closure",
+    "GGUF rank reversal and published block-byte sizes across eleven quantized storage layouts",
+    "Strict UTF-8 including rejection of Jackson auto-detected UTF-16 input, JSON duplicate keys and unpaired surrogates",
+    "Dense projection reference after explicit checkpoint transpose and name mapping",
+    "All mapping errors precede writes; import budgets, unknown/ignored sources and active tapes are checked",
+    "IEEE half/BF16 expansion, signed zero/subnormal values and bit-preserving low-precision host snapshots",
+    "Distinct-weight synthetic two-block tied decoder reproduces full logits and cached greedy generation after import",
+    "Injected failure on the second staging allocation leaves the first assignment visible, the second parameter untouched, and no allocation leak",
+    "GPT-2 reversible alphabet, ranked merges, explicit special controls and Unicode round trips",
+    "Supported ByteLevel JSON variants and rejection of unsupported matching, normalization and post-processing"
+  ],
+  "limits": [
+    "No real pretrained checkpoint or external tokenizer corpus was downloaded; fixtures are synthetic correctness evidence",
+    "Model-family adapters, reference logits/token vectors and full pretrained-model acceptance remain pending",
+    "GGUF parsing does not imply quantized placement or model execution; generic WeightLoader rejects quantized assignment",
+    "Current model parameters are FP32; raw F16/BF16/I32/BOOL are readable host snapshots and storage, not new trainable parameter types",
+    "Per-tensor budget defaults to 256 MiB for each source/expanded payload; temporary copies add a constant multiple",
+    "Backend/allocation failure during assignment is not transactional; discard a partially loaded model",
+    "Source files and model must not be modified, used or closed concurrently with import",
+    "Tokenizer import supports explicit GPT-2/ByteLevel subsets with JDK Unicode regex semantics, not general Hugging Face pipelines, SentencePiece or Llama tokenizers",
+    "GPU adapter coverage and the standalone private-runtime GGUF Metal experiment remain unchanged",
+    "No new model performance claim or Vulkan hardware verification"
+  ]
+}

@@ -5,8 +5,9 @@ transformers. The CPU implementation uses your Vectrix library for numerical
 kernels. Applications choose their architectures, weights, vocabulary, data, and
 training recipes in separate projects. Fluent NN/causal-model definitions and CPU
 cache sessions, fluent training, token generation, and optional byte-level BPE
-are implemented. General pretrained-weight/tokenizer-file loading, pretraining data
-workflows, and fine-tuning remain on the roadmap. A separate experimental GGUF/Metal path is
+are implemented, alongside general GGUF/safetensors readers, explicit weight mappings,
+and GPT-2/selected ByteLevel tokenizer-file loading. Real checkpoint validation,
+pretraining data workflows, and fine-tuning remain on the roadmap. A separate experimental GGUF/Metal path is
 described below.
 
 ## Build and run
@@ -60,9 +61,10 @@ examples module, integration tests, and optional benchmarks/GPU adapters. The
 | Networks | Recursive modules, Linear, grouped/depthwise Conv2d, pooling, RNN/LSTM/GRU cells and sequences, explicit recurrent state/masks, activations, embeddings, dropout, norms, residuals, and tied weights. |
 | Training | Fluent Trainer/optimizer/loader APIs, MSE/cross-entropy, SGD/AdamW, groups/schedules, clipping, weighted evaluation, callbacks, stopping/cancellation, and deterministic batching. |
 | Persistence | Named state, aliases, module configuration/modes, optimizer slots/counters, random counters, loader metadata, CRC validation, and atomic replacement. |
+| Pretrained IO | Independent mapped GGUF v3/safetensors readers, checked local shard indexes, explicit weight names/transposes/ties, bounded tensor staging, and optional F16/BF16 storage expansion. |
 | Transformers | Configurable multi-layer causal decoders, MHA/MQA/GQA, masks/RoPE, feed-forward variants, norms/tied readouts, and independent prefill/decode cache sessions. |
 | Generation | Token-based single-sequence generation, Vectrix host sampling, top-k/top-p, penalties, stops, streaming, cancellation, and processed log probabilities. |
-| Optional text | Independent tokenizer SPI, complete byte alphabet/BPE, special-token metadata, explicit normalization/pre-tokenization, and incremental UTF-8 decoding. |
+| Optional text | Independent tokenizer SPI, complete byte alphabet/BPE, GPT-2 files and a checked Hugging Face ByteLevel subset, special-token metadata, and incremental UTF-8 decoding. |
 
 Tests include independent numerical references, gradient checks, nonlinear XOR
 training, caller-defined transformer training, exact checkpoint resume, cached
@@ -81,6 +83,8 @@ The [recurrent guide](docs/recurrent-guide.md) covers RNN/LSTM/GRU construction,
 masked sequences, carried state, full/truncated backpropagation, and recall examples.
 The [generation/tokenizer guide](docs/generation-guide.md) covers token sampling,
 streaming text, reusable settings, dependency isolation, and remaining format support.
+The [pretrained loading guide](docs/pretrained-loading.md) covers container ownership,
+weight mappings, tokenizer assets, and supported format boundaries.
 
 ## Compose a network
 

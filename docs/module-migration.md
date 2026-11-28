@@ -25,6 +25,7 @@ that transitively exposes the CPU framework. GPU dependencies remain opt-in.
 | `nnjava-nn` | `org.dynamisengine.nn.layers` |
 | `nnjava-transformer` | `org.dynamisengine.nn.transformer` |
 | `nnjava-generation` | `org.dynamisengine.nn.generation` |
+| `nnjava-formats` | `org.dynamisengine.nn.formats` |
 | `nnjava-tokenizers` | `org.dynamisengine.nn.tokenizers` |
 | `nnjava-data` | `org.dynamisengine.nn.data` |
 | `nnjava-io` | `org.dynamisengine.nn.io` |
@@ -37,6 +38,10 @@ that transitively exposes the CPU framework. GPU dependencies remain opt-in.
 Integration tests and JMH are separate development modules. Generation is included
 in the CPU starter; tokenizers remain an explicit optional dependency. The
 [generation guide](generation-guide.md) documents their initial APIs and boundaries.
+`nnjava-formats` parses mapped GGUF/safetensors without model or numerical modules;
+IO and tokenizers now depend on formats, which uses Jackson Core 2.20.2. Minimal
+IO/tokenizer module paths therefore include formats and `com.fasterxml.jackson.core`.
+Generation-only consumers still need neither. See [pretrained loading](pretrained-loading.md).
 
 ## Provider and persistence changes
 
@@ -126,8 +131,8 @@ mvn -f examples/pom.xml -Pgpu verify      # also compile standalone GPU consumer
 python3 tools/verify_module_consumers.py --gpu-metal
 ```
 
-The final command runs the model-only consumer on the module path, then checks
-GPU provider discovery and GEMM in both modes. Without `--gpu-metal`, it runs only
-the CPU inference consumer. Hardware profiles fail on absent devices; portable
+The final command runs format-only, training, model-only, generation-only and
+tokenizer-only module-path consumers, then checks GPU provider discovery and GEMM
+in both modes. Without `--gpu-metal`, it runs the CPU consumers. Hardware profiles fail on absent devices; portable
 GPU builds skip hardware tests explicitly. Local Metal evidence does not establish
 Vulkan/MoltenVK coverage or real-model throughput.

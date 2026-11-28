@@ -154,8 +154,8 @@ its planned builder or orchestration API already exists.
 | IO-01                         | Definition/model save/load and schema migration                                                       | Definition codec and model archives implemented; automatic schema migration remains planned                                                         | P0 R2/R3              |
 | IO-02 | Full reproducible training resume | Trainer checkpoints include partial metrics, loop/stopping state and loaders; interrupted/resumed final archives match byte for byte | P0 R3 |
 | IO-03                         | Extensible external tensor archive codecs                                                             | Planned codec extension points; explicit model-family mappings stay downstream                                    | P2 R5                 |
-| IO-04 | GGUF container reader: neutral tensor/metadata/quantized-block descriptors | Experimental reader merged in standalone Metal module; neutral modular API remains planned | P1 R5 L2 with EXEC-05 |
-| IO-05                         | Safetensors and supported sharded weight indexes; bounded loading                                     | Planned; backend-neutral parsing                                                                                  | P1 R5 L2              |
+| IO-04 | GGUF container reader: neutral tensor/metadata/quantized-block descriptors | Implemented mapped v3 reader in independent formats module; quantized placement remains adapter work | P1 R5 L2 with EXEC-05 |
+| IO-05 | Safetensors and supported sharded weight indexes; bounded loading | Implemented checked mapped files/sibling shard indexes and per-tensor staging | P1 R5 L2 |
 | LM-01                         | Configurable attention, gated blocks, masks, norms, residuals, tied weights                           | CPU decoder blocks and configuration builders implemented; further variants planned                                                | P0 R5 L1              |
 | LM-02 | Decoder and causal-language-model definitions/builders | Implemented CPU causal-model definition and builder with distinct block weights | P0 R5 L1 |
 | LM-03 | Prefill/decode sessions and cache lifecycle | CPU prefill/decode sessions and stale-cache checks implemented; GPU session path pending | P0 R5 L2 |
@@ -164,7 +164,7 @@ its planned builder or orchestration API already exists.
 | LM-06                         | Position schemes, rotary scaling, sliding windows, context validation                                 | RoPE/base and causal/explicit masks exposed; scaling/window policies planned                                                 | P1 R5 L1/L5           |
 | LM-07 | Greedy/sampled generation, logits processors, stops, streaming, cancellation | Implemented single-sequence host sampling, penalties, token stops, streaming/cancellation, log probabilities and reusable schemas | P0 R5 L2 |
 | LM-08                         | Batched/paged inference, prefix sharing, continuous batching, memory limits                           | Upstream paged cache exists; orchestration planned                                                                | P1 R5 L2/L5           |
-| LM-09 | Tokenizer SPI, incremental decoding, optional BPE/SentencePiece providers | Implemented SPI, configurable byte-level BPE, normalization/pre-tokenization and UTF-8 streaming; pretrained format readers and SentencePiece remain planned | P1 R5 L2 |
+| LM-09 | Tokenizer SPI, incremental decoding, optional BPE/SentencePiece providers | Implemented SPI/BPE/UTF-8 streaming, GPT-2 files and checked ByteLevel JSON subset; SentencePiece/further pipelines pending | P1 R5 L2 |
 | LM-10                         | Causal-LM pretraining: shifted labels, token masks, packed document boundaries, token-normalized loss | Generic training primitives exist; LM workflow planned                                                            | P0 R5 L3              |
 | LM-11                         | Supervised fine-tuning with token loss masks and selected trainable parameters                        | Planned; recipes/data remain caller-defined                                                                       | P1 R5 L4              |
 | LM-12                         | QLoRA with frozen quantized base and trainable adapters                                               | Planned; quantized backward and precision prerequisites                                                           | P2 R5 L5              |
@@ -172,7 +172,7 @@ its planned builder or orchestration API already exists.
 | LM-14                         | Token-correct gradient accumulation, activation recomputation, training memory policies               | Planned above existing explicit training/checkpoint APIs                                                          | P1 R5 L3/L5           |
 | LM-15                         | MoE routing/expert blocks and auxiliary losses                                                        | Planned later expansion; distributed experts require DIST-01                                                      | P2 R5 L6              |
 | LM-16                         | Beam search, constrained-decoding hooks, speculative decoding                                         | Planned later expansion; strategy-specific validation required                                                    | P2 R5 L6              |
-| LM-17                         | Weight-name/layout adapters, aliases, quantized placement and loading policies                        | Container/block support upstream; framework integration planned                                                   | P1 R5 L2              |
+| LM-17 | Weight-name/layout adapters, aliases, quantized placement and loading policies | Explicit names/matrix transposes, tied storage and bounded imports implemented; family adapters and quantized placement pending | P1 R5 L2 |
 | LM-18                         | Preference objectives such as DPO and reference-model handling                                        | Candidate expansion; separate from a full RL platform                                                             | P2 R5 L6              |
 | EX-01                         | First-class examples module and shared runner                                                         | Implemented with regression and tiny-transformer examples                                                         | P0 R1                 |
 | EX-02 | MLP example | Implemented fluent XOR MLP with definition and weight save/load | P0 R2/R3 |
@@ -212,7 +212,8 @@ behavior and keep release gates explicit.
 The module/provider foundation, CPU migration, first NN/LM builders, definition
 persistence, CPU cache sessions, supervised Trainer/data APIs, CPU CNN support,
 RNN/LSTM/GRU cells/sequences/examples, token generation, and optional byte-level
-BPE are implemented. Next add general pretrained weight/tokenizer loading,
+BPE, neutral GGUF/safetensors readers and explicit pretrained mappings are implemented.
+Next validate a selected real checkpoint and add model-family adapters,
 branched/residual builders, expanded GPU numerical coverage, and
 sequence-data packing/streaming. Preserve separate correctness and performance
 milestones for real-model inference and LM training. Keep nonlinear classifiers

@@ -10,9 +10,20 @@
         <nnjava.version>0.1.0-SNAPSHOT</nnjava.version>
         <vectrix.version>4.1.0</vectrix.version>
         <dynamisgpu.version>1.14.1</dynamisgpu.version>
+        <jackson.version>2.20.2</jackson.version>
     </properties>
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.dynamisengine</groupId>
+                <artifactId>nnjava-formats</artifactId>
+                <version>${nnjava.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.dynamisengine</groupId>
                 <artifactId>nnjava-generation</artifactId>
