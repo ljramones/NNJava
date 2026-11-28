@@ -61,8 +61,10 @@ Sessions own fixed-capacity GPU K/V allocations. Appends use runtime copies into
 strided slices; attention reads device views. Reset reuses storage, capacity and
 batch checks precede mutation, and weight changes invalidate a populated session
 until reset. Appends synchronize under the existing portable cache contract.
-The generic public generation path reads the final logit row and samples on the
-host. GPU sampling, paged caches and command replay remain later integrations.
+The existing `GenerationSession` path reads the final logit row and samples on the
+host. The explicit [device-generation API](gpu-sampling.md) now samples on the GPU
+and feeds sampled tensors directly into decode. Paged caches and command replay
+remain later integrations.
 
 One-token decoding exposed singleton matrix views with zero unused strides.
 The GEMM adapter now canonicalizes those contiguous layouts before passing leading
@@ -108,7 +110,7 @@ See the [verification record](evidence/gpu-model-2026-11-27.json) and linked rep
 
 ## Remaining work
 
-Next integrate paged caches, device sampling and recorded decoding, then measure
+Next integrate paged caches and recorded decoding, then measure
 controlled end-to-end performance. Per-operation scratch allocation, packing and
 synchronization are optimization targets. Reports contain acceptance timings,
 not a throughput benchmark or GPU peak-memory measurement. Capacity 64 is verified

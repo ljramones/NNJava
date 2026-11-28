@@ -54,6 +54,7 @@ public final class GpuBackend implements Backend {
     private final Map<Operation, AccuracyContract> contracts = new LinkedHashMap<>();
     private final GpuNeuralKernels neural;
     private final GpuTensorKernels tensors;
+    private final GpuSamplingKernels sampling;
     private GpuPointwise pointwise;
     private GpuBlasf blas;
     private GpuGemmf exactGemm;
@@ -67,6 +68,7 @@ public final class GpuBackend implements Backend {
         device = new Device(mode == GpuMode.EXACT ? "vectrix-gpu-exact" : "dynamis-gpu-throughput", GpuProviders.key(gpu.adapter()));
         neural = new GpuNeuralKernels(this, gpu, mode);
         tensors = new GpuTensorKernels(this, gpu);
+        sampling = new GpuSamplingKernels(this, gpu);
     }
 
     private static boolean whole(KernelTensor tensor) {
@@ -123,6 +125,7 @@ public final class GpuBackend implements Backend {
 
     @Override
     public boolean supports(Operation operation, DType dtype) {
+        if (operation == Operation.SAMPLE) { return dtype == DType.INT32; }
         if (operation == Operation.COPY) {
             return true;
         }
@@ -148,6 +151,11 @@ public final class GpuBackend implements Backend {
     public boolean supports(KernelCall call) {
         if (!supports(call.operation(), call.output().buffer().dtype())) {
             return false;
+        }
+        if (call.operation() == Operation.SAMPLE) {
+            var shape = call.inputs().getFirst().layout().shape();
+            return supportsSampling(GpuSamplingKernels.options(call), call.output().layout().shape().elements(), shape.dimension(shape.rank() - 1))
+                    && call.attributes().integer("step") <= 0xffff_ffffL && call.output().layout().isContiguous();
         }
         if (call.operation() == Operation.COPY) {
             KernelTensor source = call.inputs().getFirst();
@@ -207,6 +215,7 @@ public final class GpuBackend implements Backend {
     private void encode(GpuCommandEncoder encoder, KernelCall call) {
         Operation op = call.operation();
         KernelTensor out = call.output();
+        if (op == Operation.SAMPLE) { sampling.encode(encoder, call); return; }
         if (GpuNeuralKernels.handles(op)) { neural.encode(encoder, call); return; }
         if (GpuTensorKernels.handles(op)) { tensors.encode(encoder, call); return; }
         if (op == Operation.COPY) {
@@ -537,6 +546,11 @@ public final class GpuBackend implements Backend {
         throw new UnsupportedOperationException("GPU normal initialization is not implemented yet; upload explicit weights");
     }
 
+    @Override public boolean supportsSampling(org.dynamisengine.nn.ops.SamplingOptions options, long rows, long vocabulary) {
+        return (mode == GpuMode.THROUGHPUT || options.greedySelection())
+                && GpuSamplingKernels.supports(gpu.capabilities(), options, rows, vocabulary);
+    }
+
     private Completion submit(Consumer<GpuCommandEncoder> encode, Runnable publish) {
         ensureOpen();
         try (var encoder = gpu.encoder()) {
@@ -593,7 +607,7 @@ public final class GpuBackend implements Backend {
         for (var allocation : Set.copyOf(allocations)) {
             allocation.close();
         }
-        for (AutoCloseable resource : new AutoCloseable[]{tensors, neural, throughputGemm, elementwise, exactGemm, blas, pointwise, gpu}) {
+        for (AutoCloseable resource : new AutoCloseable[]{sampling, tensors, neural, throughputGemm, elementwise, exactGemm, blas, pointwise, gpu}) {
             if (resource != null) {
                 try {
                     resource.close();

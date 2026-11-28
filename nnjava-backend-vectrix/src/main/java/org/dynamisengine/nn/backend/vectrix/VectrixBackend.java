@@ -44,6 +44,7 @@ public final class VectrixBackend implements Backend {
             case COPY, CAST, GATHER, CONCAT, WHERE -> true;
             case EQUAL, LESS, GREATER, AND, OR, NOT, IS_FINITE, ALL -> dtype == DType.BOOL;
             case ARGMAX -> dtype == DType.INT32;
+            case SAMPLE -> false;
             default -> dtype == DType.FP32;
         };
     }

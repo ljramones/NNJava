@@ -1,0 +1,50 @@
+{
+  "model" : "HuggingFaceTB/SmolLM2-135M",
+  "revision" : "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+  "backend" : "Device[backend=vectrix-gpu-exact, id=METAL:metal:0:Apple M4 Max]",
+  "provider" : "vectrix-gpu-exact",
+  "vectrix" : "4.1.0",
+  "java" : "25.0.4",
+  "dynamisgpu" : "1.14.1",
+  "simd" : false,
+  "os" : "Mac OS X aarch64",
+  "tokenization_vectors" : 10,
+  "unique_parameters" : 272,
+  "parameter_bytes" : 538060032,
+  "heap_used_after_load" : 130881704,
+  "context_capacity" : 64,
+  "load_ms" : 2632.56675,
+  "compared_logits" : 737280,
+  "max_absolute_logit_error" : 1.6546249389648438E-4,
+  "rms_logit_error" : 2.2502026759033014E-5,
+  "cache_check_max_absolute_error" : 0.0,
+  "device_sampling_verified" : true,
+  "device_generation_token_reads" : 12,
+  "device_generation_scalar_token_uploads" : 0,
+  "timing_policy" : "One request per prompt after correctness passes; includes accepted final-token decode and host sampling/logit readback; not a throughput benchmark",
+  "cases" : [ {
+    "prompt" : "The capital of France is",
+    "prompt_tokens" : 5,
+    "generated_ids" : [ 260, 3575, 282, 260 ],
+    "generated_text" : " the capital of the",
+    "prefill_ms" : 43.663042,
+    "decode_ms" : 152.080416,
+    "total_ms" : 201.953625
+  }, {
+    "prompt" : "Once upon a time",
+    "prompt_tokens" : 4,
+    "generated_ids" : [ 28, 665, 436, 253 ],
+    "generated_text" : ", there was a",
+    "prefill_ms" : 39.242875,
+    "decode_ms" : 138.737583,
+    "total_ms" : 178.468875
+  }, {
+    "prompt" : "Java is a",
+    "prompt_tokens" : 3,
+    "generated_ids" : [ 6256, 1789, 338, 314 ],
+    "generated_text" : " programming language that is",
+    "prefill_ms" : 38.052958,
+    "decode_ms" : 143.163626,
+    "total_ms" : 181.6855
+  } ]
+}

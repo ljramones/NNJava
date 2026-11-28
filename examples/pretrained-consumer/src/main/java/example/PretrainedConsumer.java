@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,9 +20,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.ServiceLoader;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.dynamisengine.nn.backend.Backend;
 import org.dynamisengine.nn.backend.BackendProvider;
+import org.dynamisengine.nn.backend.BackendProviders;
+import org.dynamisengine.nn.backend.KernelTensor;
 import org.dynamisengine.nn.formats.JsonDocuments;
 import org.dynamisengine.nn.generation.GenerationSession;
+import org.dynamisengine.nn.generation.DeviceGenerationSession;
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.pretrained.LlamaCheckpoint;
 import org.dynamisengine.nn.pretrained.LlamaConfig;
@@ -35,6 +43,10 @@ public final class PretrainedConsumer {
     private static final ValueLayout.OfFloat FLOAT = ValueLayout.JAVA_FLOAT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
     private record CaseResult(String prompt, int promptTokens, List<Integer> generated, String text,
                               long prefillNanos, long decodeNanos, long totalNanos) { }
+    private static final class DeviceChecks {
+        final AtomicBoolean active = new AtomicBoolean();
+        final AtomicInteger tokenReads = new AtomicInteger(), scalarUploads = new AtomicInteger();
+    }
     private static final class Errors {
         private double maximum, sumSquares;
         private long count;
@@ -87,8 +99,8 @@ public final class PretrainedConsumer {
         var checkpoint = LlamaCheckpoint.open(directory); var config = checkpoint.configuration();
         if (config.vocabularySize() != vocabulary) { throw new AssertionError("Reference vocabulary differs"); }
         long loadStarted = System.nanoTime(); long loadNanos, parameterBytes = 0, heapAfterLoad;
-        int tokenVectors, parameters; String device;
-        try (var context = open(provider); var model = checkpoint.load(context, 64);
+        int tokenVectors, parameters; String device; var deviceChecks = new DeviceChecks();
+        try (var context = open(provider, deviceChecks); var model = checkpoint.load(context, 64);
              var tokenizer = TokenizerAssets.huggingFace(directory.resolve("tokenizer.json"), TokenizerAssets.Options.gpt2())) {
             context.synchronize(); loadNanos = System.nanoTime() - loadStarted;
             device = context.device().toString();
@@ -147,16 +159,28 @@ public final class PretrainedConsumer {
                             result.prefillNanos(), result.decodeNanos(), result.totalNanos()));
                     System.out.println("Verified: " + test.get("text") + " -> " + text);
                 }
+                if (!provider.equals("vectrix")) {
+                    deviceChecks.active.set(true);
+                    try (var generation = DeviceGenerationSession.builder().model(model).maxNewTokens(4).sampling(s -> s.temperature(0))
+                            .stopTokenIds(config.eosTokenIds().stream().mapToInt(Integer::intValue).toArray()).build(); var decoder = tokenizer.newDecoder()) {
+                        var streamed = new StringBuilder();
+                        var result = generation.generate(prompt, token -> { streamed.append(decoder.accept(token.tokenId())); return GenerationSession.Decision.CONTINUE; });
+                        streamed.append(decoder.finish()); equal(generated, result.tokenIds(), "Device-sampled generation");
+                        if (!string(test, "generated_text").contentEquals(streamed)) { throw new AssertionError("Device-sampled streaming text differs"); }
+                    } finally { deviceChecks.active.set(false); }
+                    System.out.println("Device sampling verified without logit readback: " + test.get("text"));
+                }
                 if (context.liveAllocations() != baseline) { throw new AssertionError("Inference leaked allocations"); }
             }
         }
-        writeReport(reportPath, manifest, referenceErrors, cacheErrors, tokenVectors, parameters, parameterBytes, heapAfterLoad, loadNanos, measured, provider, device);
+        if (!provider.equals("vectrix") && (deviceChecks.tokenReads.get() != 12 || deviceChecks.scalarUploads.get() != 0)) { throw new AssertionError("Device generation transfer contract differs"); }
+        writeReport(reportPath, manifest, referenceErrors, cacheErrors, tokenVectors, parameters, parameterBytes, heapAfterLoad, loadNanos, measured, provider, device, deviceChecks);
         System.out.printf("Validated %,d logits; max absolute error %.8g; report: %s%n", referenceErrors.count, referenceErrors.maximum, reportPath);
     }
 
     private static void writeReport(Path path, Map<String, Object> manifest, Errors reference, Errors cache,
                                     int vectors, int parameters, long parameterBytes, long heap, long loadNanos, List<CaseResult> cases,
-                                    String provider, String device) throws IOException {
+                                    String provider, String device, DeviceChecks deviceChecks) throws IOException {
         try (var generator = new JsonFactory().createGenerator(Files.newOutputStream(path))) {
             generator.useDefaultPrettyPrinter(); generator.writeStartObject();
             generator.writeStringField("model", (String) manifest.get("model")); generator.writeStringField("revision", (String) manifest.get("revision"));
@@ -170,6 +194,9 @@ public final class PretrainedConsumer {
             generator.writeNumberField("context_capacity", 64); generator.writeNumberField("load_ms", loadNanos / 1e6);
             generator.writeNumberField("compared_logits", reference.count); generator.writeNumberField("max_absolute_logit_error", reference.maximum);
             generator.writeNumberField("rms_logit_error", reference.rms()); generator.writeNumberField("cache_check_max_absolute_error", cache.maximum);
+            generator.writeBooleanField("device_sampling_verified", !provider.equals("vectrix"));
+            generator.writeNumberField("device_generation_token_reads", deviceChecks.tokenReads.get());
+            generator.writeNumberField("device_generation_scalar_token_uploads", deviceChecks.scalarUploads.get());
             generator.writeStringField("timing_policy", "One request per prompt after correctness passes; includes accepted final-token decode and host sampling/logit readback; not a throughput benchmark");
             generator.writeArrayFieldStart("cases");
             for (var result : cases) {
@@ -182,13 +209,25 @@ public final class PretrainedConsumer {
             generator.writeEndArray(); generator.writeEndObject();
         }
     }
-    private static ExecutionContext open(String id) {
+    private static ExecutionContext open(String id, DeviceChecks checks) {
         if (id.equals("vectrix")) { return ExecutionContext.cpu(); }
         var provider = ServiceLoader.load(BackendProvider.class).stream().map(ServiceLoader.Provider::get)
                 .filter(value -> value.id().equals(id)).findFirst().orElseThrow(() -> new IllegalArgumentException("Provider unavailable: " + id));
         var devices = provider.devices();
         if (devices.isEmpty()) { throw new IllegalStateException("Requested provider has no device: " + id); }
-        return ExecutionContext.open(id, devices.getFirst().id());
+        Backend backend = BackendProviders.open(id, devices.getFirst().id());
+        var monitored = (Backend) Proxy.newProxyInstance(Backend.class.getClassLoader(), new Class<?>[]{Backend.class}, (proxy, method, args) -> {
+            if (checks.active.get() && method.getName().equals("download")) {
+                if (args[1] instanceof float[]) { throw new AssertionError("Device generation downloaded floating-point logits"); }
+                if (args[1] instanceof int[] values) {
+                    if (values.length != 1 || ((KernelTensor) args[0]).buffer().elements() != 1) { throw new AssertionError("Expected a scalar token readback"); }
+                    checks.tokenReads.incrementAndGet();
+                }
+            }
+            if (checks.active.get() && method.getName().equals("upload") && args[1] instanceof int[] values && values.length == 1) { checks.scalarUploads.incrementAndGet(); }
+            try { return method.invoke(backend, args); } catch (InvocationTargetException error) { throw error.getCause(); }
+        });
+        return ExecutionContext.create(monitored);
     }
     private static float[] row(MemorySegment data, int row, int rows, int vocabulary) throws IOException {
         if (row < 0 || row >= rows) { throw new IOException("Reference row outside data"); }

@@ -153,6 +153,8 @@ The [GPU tensor-operation guide](docs/gpu-tensor-operations.md) documents indexi
 mask semantics, rotary positions and data-dependent error handling.
 The [GPU model-inference guide](docs/gpu-model-inference.md) covers construction,
 checkpoint loading, cached decoding and real-model reference results.
+The [GPU sampling guide](docs/gpu-sampling.md) adds explicit device sampling and
+direct token feedback, verified without logit downloads in both Metal modes.
 
 ```sh
 mvn -Pgpu,metal clean install

@@ -128,11 +128,13 @@ cache and generation checks without the CPU backend on their module path. Maximu
 absolute reference errors are 0.000165462494 and 0.000246047974 respectively; the
 acceptance tolerances and exact token/text expectations are unchanged. The
 [GPU model-inference guide](gpu-model-inference.md) gives commands, device-cache
-behavior, mode-specific evidence and the remaining serving work. Sampling still
-uses the portable host path; the model and K/V cache execute on the GPU.
+behavior, mode-specific evidence and the remaining serving work. The default
+generation API uses host sampling. The explicit [device-generation path](gpu-sampling.md)
+now also matches all three continuations in both Metal modes, with guarded zero
+logit downloads and direct device-token feedback.
 
 This establishes CPU and native Metal pretrained-model acceptance. Quantized
-placement, GPU sampling/paged-cache orchestration, batching,
+placement, paged-cache orchestration, batching,
 long-context behavior, corpus training and further model-family adapters remain
 separate milestones. The [verification record](evidence/dependency-security-2026-11-27.json)
 links the captured scalar/SIMD reports and test commands.

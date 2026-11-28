@@ -130,7 +130,8 @@ functions, sums/norms, batched GEMM and gradient compositions on Metal. The
 [tensor adapter](gpu-tensor-operations.md) adds masks, indexing, RoPE and verified
 embedding/masked GQA gradients. The [model-inference integration](gpu-model-inference.md)
 adds supplied-weight construction/loading and full SmolLM2 device-cache inference
-in both Metal modes. Paged caches, device sampling and recorded decoding remain next.
+in both Metal modes. [Device sampling](gpu-sampling.md) now runs through the provider
+SPI with direct token feedback. Paged caches and recorded decoding remain next.
 
 ## History
 

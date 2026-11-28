@@ -87,8 +87,8 @@ The subsequent [GPU model-inference batch](gpu-model-inference.md) implements
 supplied-weight construction/loading and complete transformer inference against
 the independent pretrained reference in both Metal modes.
 GPU normal initialization, cross-entropy, stateful optimizers, convolution/pooling
-and mixed-precision training remain unsupported. Paged cache integration, GPU
-sampling, recorded decode and quantized placement follow complete inference.
+and mixed-precision training remain unsupported. [GPU sampling](gpu-sampling.md) is
+now integrated; paged cache integration, recorded decode and quantized placement remain.
 
 Existing host utilities such as `Masks.padding` still read lengths for validation
 and construct masks on the host; this batch implements the underlying device Ops.

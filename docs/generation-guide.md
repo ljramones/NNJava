@@ -2,6 +2,9 @@
 
 `nnjava-generation` implements single-sequence generation, Vectrix-backed host
 sampling, streaming callbacks, stopping, cancellation, and reusable settings.
+The explicit `DeviceGenerationSession` path now adds provider sampling with tensor
+logits and direct device-token feedback; see [GPU sampling](gpu-sampling.md) for its
+draw contract, supported settings and real-model verification.
 `nnjava-tokenizers` supplies byte-level BPE, vocabulary/special-token metadata,
 provider discovery, and incremental UTF-8 decoding. Both target JDK 25.
 
@@ -168,7 +171,7 @@ independent rescan oracle and sampling against known distributions, then compare
 cached generation with full-model execution and verify lifecycle failures.
 
 This chunk supplies single-sequence host sampling and configurable byte-level BPE.
-GPU-resident sampling, batching/prefix sharing, beam/speculative decoding and SentencePiece
+Device sampling is now implemented; batching/prefix sharing, beam/speculative decoding and SentencePiece
 remain separate work. [Pretrained loading](pretrained-loading.md) now supplies general
 GGUF/safetensors readers, explicit mappings, GPT-2 files and a checked ByteLevel JSON subset. The existing
 GGUF/Metal experiment retains its model-specific tokenizer/runtime independently;

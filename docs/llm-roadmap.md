@@ -13,7 +13,8 @@ and DynamisGPU 1.14.1. General weight/tokenizer readers and the first optional L
 adapter are implemented; SmolLM2-135M passes scalar/SIMD CPU and both native Metal
 GPU modes against independent reference tokens/logits, with cached generation.
 Further checkpoint compatibility, corpus workflows, adaptation,
-optimized GPU cache/sampling/replay, and scale features remain separate milestones. The standalone
+optimized GPU cache/replay and scale features remain separate milestones. Explicit
+[device sampling](gpu-sampling.md) is implemented with tensor logits/token feedback. The standalone
 GGUF/Metal experiment retains its own dependency and accuracy limits.
 
 ## Library and application responsibilities
@@ -187,7 +188,8 @@ try (var session = GenerationSession.builder()
 
 The session borrows model weights; each request owns and closes a fresh cache.
 The initial sampler uses host logits and Vectrix kernels/Philox, with a new
-counter-based stream per request. GPU-resident sampling remains follow-on work.
+counter-based stream per request. `DeviceGenerationSession` now provides an explicit
+provider-sampling alternative with its own draw contract and direct tensor-token feedback.
 Text encoding/decoding wraps this token API without becoming a mandatory
 dependency. Advanced callers retain direct forward/cache calls, custom loops,
 and custom components.

@@ -1,0 +1,71 @@
+{
+  "date": "2026-11-27",
+  "baseline": "56e21cb",
+  "targets": {"jdk": "25", "vectrix": "4.1.0", "dynamisgpu": "1.14.1"},
+  "device": "Apple M4 Max, native Metal",
+  "implemented": [
+    "Optional provider SAMPLE operation, SamplingOptions and metadata capability query; unsupported providers do not fall back to host sampling",
+    "Vectrix greedy argmax with first-tie/subnormal semantics and DynamisGPU temperature/top-k/top-p sampling",
+    "Strict GPU validation of NaN, positive infinity and all-banned rows through completion errors",
+    "TensorAutoregressiveModel and CausalModels.adaptDevice keep logits and sampled-token feedback as tensors",
+    "Explicit DeviceGenerationSession with fresh request caches/step streams, inclusive stops, minimum-length device masking, callbacks, cancellation and history criteria",
+    "Completion before callbacks and cleanup before request return; host sampling API remains unchanged",
+    "Independent pretrained consumer guards against FP32 logit downloads and sampled scalar-token reuploads during device generation"
+  ],
+  "checks": [
+    {"command": "mvn -o -q -Psimd,gpu,metal,benchmarks verify", "status": "passed", "tests": 317, "failures": 0, "errors": 0, "skipped": 0},
+    {"command": "mvn -o -q -Pgpu,metal install", "status": "passed", "tests": 317, "failures": 0, "errors": 0, "skipped": 0},
+    {"command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify", "status": "passed"},
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-provider vectrix-gpu-exact --pretrained-dir /private/tmp/nnjava-smollm2-validation --pretrained-report docs/evidence/smollm2-device-sampling-exact-2026-11-27.json",
+      "status": "passed", "report": "smollm2-device-sampling-exact-2026-11-27.json"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-provider dynamis-gpu-throughput --pretrained-dir /private/tmp/nnjava-smollm2-validation --pretrained-report docs/evidence/smollm2-device-sampling-throughput-2026-11-27.json",
+      "status": "passed", "report": "smollm2-device-sampling-throughput-2026-11-27.json"
+    }
+  ],
+  "reactor_test_counts": {
+    "core": 5, "formats": 11, "generation": 31, "tokenizers": 26, "pretrained": 4,
+    "integration": 178, "examples": 8, "gpu_adapter": 54, "total": 317,
+    "new_portable_generation_tests": 7, "new_gpu_sampling_tests": 9, "new_cpu_capability_tests": 1
+  },
+  "numerical_and_protocol_validation": [
+    "Greedy first ties, signed zero, subnormal ordering and negative-infinity bans on strided/offset input rows",
+    "Published Sampler.reference draws for full-vocabulary and explicit top-k/nucleus policies, three-row 2053-token inputs, full-width 64-bit seeds and uint32 steps",
+    "70001-token top-k/top-p fixture exercises the upstream wide-vocabulary candidate/filter path",
+    "Empty rows, unsupported nucleus/temperature/dimension settings, exact-mode stochastic rejection, tape rejection and strict nonfinite/all-banned failures",
+    "Native real-model guard rejects every attempted FP32 logit download during device generation and confirms no scalar sampled-token upload",
+    "Portable scripted provider verifies that the SAMPLE output buffer is the actual decode input, rather than a host-uploaded replacement",
+    "Fresh requests/seed-step reset, committed stop/callback/criterion tokens, cross-thread cancellation, reentry/closure rejection and callback/decode cleanup",
+    "Minimum-length EOS suppression runs as a device mask and includes the eventual committed stop token",
+    "Twelve injected NNJava sampling scratch allocation failures close aborted recordings without leaking owned handles"
+  ],
+  "real_model": {
+    "name": "HuggingFaceTB/SmolLM2-135M",
+    "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "decoder_blocks": 30, "context_capacity": 64,
+    "compared_logits_per_mode": 737280,
+    "exact_max_absolute_logit_error": 0.00016546249389648438,
+    "throughput_max_absolute_logit_error": 0.0002460479736328125,
+    "device_generation": {
+      "policy": "greedy", "prompt_cases_per_mode": 3, "tokens_per_case": 4,
+      "reference_ids_and_streamed_text": "exact agreement in both modes",
+      "token_reads_per_mode": 12, "scalar_token_uploads_per_mode": 0,
+      "fp32_logit_download_guard_passed": true,
+      "token_read_payload_bytes_per_mode": 48,
+      "note": "Token payload excludes runtime error/status reports and metadata transfers; allocation baselines restored"
+    },
+    "gpu_module_path": "GPU adapter and public model/generation/tokenizer/numerical/native modules; no concrete CPU backend, training or dataset modules"
+  },
+  "limits": [
+    "Stochastic device draws require throughput mode and use the published hash/FP32 contract, not the host Vectrix/Philox stream; exact mode exposes only greedy selection",
+    "Stochastic top-p below one requires explicit top-k; top-k maximum 1024, vocabulary maximum 1048576, rows maximum 65535, step uint32",
+    "Stochastic kernels need 1024-thread groups and a finite FP32 reciprocal temperature; greedy uses the Vectrix twin",
+    "Device generation does not implement repetition/presence/frequency penalties, host logits processors or selected-token log probabilities",
+    "Token IDs are read for host control; full vocabulary logits are not downloaded during device generation",
+    "Fixed FP32 device caches remain; upstream PagedKvCache stores FP16 and needs an explicit fused-attention precision policy and separate model checks",
+    "Whole-model replay, paged/prefix serving, quantized placement and broader training remain follow-on work",
+    "No throughput speedup, controlled performance benchmark, Vulkan execution or complete GPU Trainer claim"
+  ]
+}

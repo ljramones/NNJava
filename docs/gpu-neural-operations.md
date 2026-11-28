@@ -104,6 +104,7 @@ construction/loading and complete device-cache inference. Stateful optimizers, c
 convolution/pooling, mixed-precision computation and broader training support also
 remain separate work.
 
-Paged caches, GPU sampling, recorded decode steps and quantized placement follow
+GPU sampling and direct token feedback are now covered in the [sampling guide](gpu-sampling.md).
+Paged caches, recorded decode steps and quantized placement follow
 complete model operation coverage. This batch establishes GPU neural compositions
 and explicit gradient updates; it does not claim a complete GPU Trainer or LLM path.

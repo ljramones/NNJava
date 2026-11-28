@@ -29,6 +29,8 @@ adapter supplies storage, FP32 arithmetic, batched GEMM, neural functions,
 sum/norm reductions, masks/indexing, RoPE and supported gradients. Explicit supplied-weight
 construction, complete FP32 transformer inference and device-cache generation pass
 on Metal, including real SmolLM2-135M reference acceptance in both modes.
+Explicit provider sampling and tensor-token generation also pass on Metal without
+logit downloads; paged caches and complete decode replay remain follow-on work.
 
 The [model builder guide](model-builders.md) documents construction, definitions,
 training-loop integration, cache lifecycle, and runnable fluent examples.
@@ -160,11 +162,11 @@ its planned builder or orchestration API already exists.
 | IO-05 | Safetensors and supported sharded weight indexes; bounded loading | Implemented checked mapped files/sibling shard indexes and per-tensor staging | P1 R5 L2 |
 | LM-01                         | Configurable attention, gated blocks, masks, norms, residuals, tied weights                           | CPU decoder blocks and configuration builders implemented; further variants planned                                                | P0 R5 L1              |
 | LM-02 | Decoder and causal-language-model definitions/builders | Implemented CPU causal-model definition and builder with distinct block weights | P0 R5 L1 |
-| LM-03 | Prefill/decode sessions and cache lifecycle | CPU and FP32 Metal device-cache sessions verified; paged cache/sampling/replay integration pending | P0 R5 L2 |
+| LM-03 | Prefill/decode sessions and cache lifecycle | CPU and FP32 Metal device-cache sessions verified; device sampling integrated; paged cache/replay pending | P0 R5 L2 |
 | LM-04                         | Encoder/encoder-decoder, cross-attention, pooling/readout composition                                 | Planned architecture expansion                                                                                    | P2 R5 L6              |
 | LM-05                         | LoRA selection/configuration, adapter save/load, merge/unmerge                                        | Planned; frozen-base and gradient checks required                                                                 | P1 R5 L4              |
 | LM-06                         | Position schemes, rotary scaling, sliding windows, context validation                                 | RoPE/base and causal/explicit masks exposed; scaling/window policies planned                                                 | P1 R5 L1/L5           |
-| LM-07 | Greedy/sampled generation, logits processors, stops, streaming, cancellation | Implemented single-sequence host sampling, penalties, token stops, streaming/cancellation, log probabilities and reusable schemas | P0 R5 L2 |
+| LM-07 | Greedy/sampled generation, logits processors, stops, streaming, cancellation | Host path implements penalties/processors/log probabilities; explicit device path adds GPU greedy/temperature/top-k/top-p, stops and tensor feedback | P0 R5 L2 |
 | LM-08                         | Batched/paged inference, prefix sharing, continuous batching, memory limits                           | Upstream paged cache exists; orchestration planned                                                                | P1 R5 L2/L5           |
 | LM-09 | Tokenizer SPI, incremental decoding, optional BPE/SentencePiece providers | Implemented SPI/BPE/UTF-8 streaming, GPT-2/ByteLevel JSON, individual-Digits sequence and sparse alphabets; SentencePiece/further pipelines pending | P1 R5 L2 |
 | LM-10                         | Causal-LM pretraining: shifted labels, token masks, packed document boundaries, token-normalized loss | Generic training primitives exist; LM workflow planned                                                            | P0 R5 L3              |
@@ -190,7 +192,7 @@ its planned builder or orchestration API already exists.
 | EXEC-01                       | Vectrix CPU migration (`vectrix-core` and `vectrix-ml`)                                               | Implemented on 4.1.0; scalar/SIMD CPU checks pass                                                                 | P0 before R1/GPU      |
 | EXEC-02 | GPU adapter, exact mode (vectrix-gpu on the DynamisGPU runtime) | Supplied-weight construction, full FP32 transformer/device-cache inference and SmolLM2 acceptance verified on Metal; broader GPU training pending | P1 R6 |
 | EXEC-04 | GPU adapter, throughput mode (`dynamis-gpu-primitives`) | Bounded/exact-tier selections and full SmolLM2 inference/cache/generation acceptance verified on Metal; broader training and serving optimizations pending | P1 R6 |
-| EXEC-05                       | GPU inference path: `PagedKvCache`, GPU `Sampler`, recorded decode steps (`GpuRecording`)             | Upstream pieces exist                                                                                             | P1 R5/R6              |
+| EXEC-05 | GPU inference path: `PagedKvCache`, GPU `Sampler`, recorded decode steps (`GpuRecording`) | GPU sampler and tensor feedback verified with real SmolLM2; FP16 paged-attention policy and complete decode replay pending | P1 R5/R6 |
 | EXEC-03                       | Mixed precision and quantized execution policies                                                      | FP16/BF16 GEMM and quantized GEMM exist upstream; training support is request G-T9                                | P2 after R6           |
 | PERF-01                       | Worker scheduling, memory planning, fusion, recomputation                                             | Initial benchmarks exist; optimizations planned                                                                   | P2 R7                 |
 | DIST-01                       | Distributed training/execution                                                                        | Separate future design                                                                                            | P3                    |
@@ -218,7 +220,7 @@ BPE, neutral GGUF/safetensors readers and explicit pretrained mappings are imple
 The optional standard Llama adapter and first real checkpoint CPU validation are
 also implemented, including supplied-weight Metal model construction/loading and
 complete reference-checked FP32 inference in both modes. Next integrate paged GPU
-caches, device sampling and recorded decoding; add branched/residual builders,
+caches and recorded decoding; add branched/residual builders,
 additional family adapters, and
 sequence-data packing/streaming. Preserve separate correctness and performance
 milestones for real-model inference and LM training. Keep nonlinear classifiers

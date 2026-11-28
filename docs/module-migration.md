@@ -96,6 +96,8 @@ Implemented coverage:
 - FP32/INT32/BOOL comparisons, casts, masks and selection; `all` and finite checks.
 - General gather/scatter, concatenation and slice gradients, first-winner max/argmax
   and max gradients; exact RoPE forward/backward in both modes.
+- Optional provider sampling: Vectrix greedy argmax and DynamisGPU temperature/top-k/top-p
+  with strict device logit validation and explicit numerical contracts.
 
 The adapter exposes selected kernel tiers and per-operation accuracy contracts.
 It rejects unsupported operations/layouts before submission and never
@@ -110,7 +112,8 @@ inference now pass on Metal through the explicit loading policy; see
 for the tested compositions, row limits and tier choices.
 The [tensor-operation guide](gpu-tensor-operations.md) adds embedding/rotary/masked
 GQA gradient checks, layout semantics and invalid-index completion behavior.
-Per-step arenas, replay, paged caches, and sampling are subsequent integration work.
+The [GPU sampling guide](gpu-sampling.md) covers tensor-token generation with no
+logit downloads. Per-step arenas, replay and paged caches remain subsequent work.
 
 Native runtimes are supplied by the application. DynamisGPU 1.14.1's native jars
 export provider constructors but do not register `GpuProvider` services; the adapter

@@ -272,6 +272,21 @@ public final class Ops {
         return MoreOps.reduce(x, new int[]{axis}, keep, Operation.ARGMAX);
     }
 
+    /** Provider-side inference sampling over the last axis; returns one INT32 token per row. */
+    public static Tensor sample(Tensor logits, SamplingOptions options, long step) {
+        requireFloat(logits); java.util.Objects.requireNonNull(options);
+        if (logits.context().activeTape() != null) { throw new IllegalStateException("Sampling requires no active gradient tape"); }
+        Shape shape = logits.shape();
+        if (shape.rank() == 0 || shape.dimension(shape.rank() - 1) == 0 || step < 0) { throw new IllegalArgumentException("Invalid sampling shape or step"); }
+        Shape rows = shape.prefix(shape.rank() - 1);
+        if (!logits.context().supportsSampling(options, rows.elements(), shape.dimension(shape.rank() - 1))) {
+            throw new UnsupportedOperationException("Provider does not support these sampling settings and dimensions");
+        }
+        var attributes = KernelAttributes.of("temperature", options.temperature()).and("topK", options.topK()).and("topP", options.topP())
+                .and("seed", options.seed()).and("step", step);
+        return execute(Operation.SAMPLE, List.of(logits), rows, DType.INT32, 0, attributes, null);
+    }
+
     public static Tensor permute(Tensor x, int... axes) {
         return MoreOps.permute(x, axes);
     }

@@ -63,6 +63,7 @@ public record KernelCall(Operation operation, List<KernelTensor> inputs, KernelT
                     require(out == DType.BOOL && inputs.getFirst().buffer().dtype() == DType.FP32, "Finite check types");
             case ARGMAX ->
                     require(out == DType.INT32 && inputs.getFirst().buffer().dtype() == DType.FP32, "Argmax types");
+            case SAMPLE -> require(out == DType.INT32 && inputs.getFirst().buffer().dtype() == DType.FP32, "Sampling types");
             case WHERE -> require(inputs.get(0).buffer().dtype() == DType.BOOL
                     && inputs.get(1).buffer().dtype() == out && inputs.get(2).buffer().dtype() == out, "Selection types");
             case GATHER, SCATTER_ADD -> require(inputs.get(0).buffer().dtype() == out
@@ -82,6 +83,13 @@ public record KernelCall(Operation operation, List<KernelTensor> inputs, KernelT
         Shape expected = switch (operation) {
             case FILL -> actual;
             case SUM, ALL, NORM2 -> Shape.of();
+            case SAMPLE -> {
+                require(first.rank() > 0 && first.dimension(first.rank() - 1) > 0, "Sampling needs a nonempty vocabulary axis");
+                new org.dynamisengine.nn.ops.SamplingOptions((float) attributes.number("temperature"), attributes.intValue("topK"),
+                        (float) attributes.number("topP"), attributes.integer("seed"));
+                require(attributes.integer("step") >= 0, "Negative sampling step");
+                yield first.prefix(first.rank() - 1);
+            }
             case ADD, SUBTRACT, MULTIPLY, DIVIDE, EQUAL, LESS, GREATER, AND, OR ->
                     Shape.broadcast(first, inputs.get(1).layout().shape());
             case WHERE ->

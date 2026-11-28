@@ -59,6 +59,9 @@ public final class ExecutionContext implements AutoCloseable {
     }
 
     public boolean supportsNormalInitialization() { ensureOpen(); return backend.supportsNormalInitialization(); }
+    public boolean supportsSampling(org.dynamisengine.nn.ops.SamplingOptions options, long rows, long vocabulary) {
+        ensureOpen(); return backend.supportsSampling(Objects.requireNonNull(options), rows, vocabulary);
+    }
     public long maxElements(DType dtype) { ensureOpen(); return backend.maxElements(dtype); }
 
     public void checkThread() {

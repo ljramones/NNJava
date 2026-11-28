@@ -29,6 +29,9 @@ public interface Backend extends AutoCloseable {
     /** Whether counter-based normal initialization is implemented on this provider. */
     default boolean supportsNormalInitialization() { return true; }
 
+    /** Optional provider sampling. False by default, with no host sampling fallback. */
+    default boolean supportsSampling(org.dynamisengine.nn.ops.SamplingOptions options, long rows, long vocabulary) { return false; }
+
     Completion execute(KernelCall call);
 
     default Completion update(OptimizerCall call) {
