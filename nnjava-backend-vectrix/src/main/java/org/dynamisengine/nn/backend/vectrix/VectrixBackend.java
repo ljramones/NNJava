@@ -50,6 +50,7 @@ public final class VectrixBackend implements Backend {
 
     @Override
     public boolean supports(KernelCall call) {
+        if (CpuSpatialKernels.handles(call.operation())) { CpuSpatialKernels.validate(call); }
         return supports(call.operation(), call.output().buffer().dtype())
                 && (call.operation() == Operation.COPY
                 || call.inputs().stream().noneMatch(t -> t.buffer().dtype().isLowPrecision()));

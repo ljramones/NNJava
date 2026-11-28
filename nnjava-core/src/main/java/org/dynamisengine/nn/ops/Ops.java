@@ -223,6 +223,19 @@ public final class Ops {
         return MoreOps.divide(a, b);
     }
 
+    /** Channel-first cross-correlation with weights [outputs,inputs/groups,kernelHeight,kernelWidth]. */
+    public static Tensor conv2d(Tensor input, Tensor weights, Tensor bias, Conv2dConfig config) {
+        return SpatialOps.conv2d(input,weights,bias,config);
+    }
+
+    public static Tensor conv2d(Tensor input, Tensor weights, Conv2dConfig config) { return conv2d(input,weights,null,config); }
+
+    /** Padding never wins; equal maxima route gradients to the first row-major value. */
+    public static Tensor maxPool2d(Tensor input, Pool2dConfig config) { return SpatialOps.pool2d(input,config,false); }
+
+    /** Averages only in-bounds cells; padding is excluded from the denominator. */
+    public static Tensor avgPool2d(Tensor input, Pool2dConfig config) { return SpatialOps.pool2d(input,config,true); }
+
     public static Tensor exp(Tensor x) {
         return MoreOps.unary(x, Operation.EXP);
     }

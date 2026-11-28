@@ -79,6 +79,7 @@ mapping is in [numerical coverage](numerical-coverage.md).
 | Reductions               | Sum, mean, maximum, argmax, and broadcast-gradient reduction over selected axes.                                | Blasf reductions plus adapter axis traversal and explicit empty-input policies.   |
 | Linear algebra           | Matrix multiplication with transpose options and batched matrix multiplication with broadcast batch dimensions. | Gemmf/GEMV per matrix; adapter batch iteration and per-worker scratch.            |
 | Neural functions         | Activations, dropout, softmax/log-softmax, LayerNorm, RMSNorm, MSE, and cross-entropy.                          | Activations, Softmax, Norms, Loss; composed MSE and batching.                     |
+| Spatial layers | Channel-first grouped/depthwise convolution and max/average pooling, forward and backward. | Vectrix Conv2d/Pool2d; adapter packs layouts and batches image calls. |
 | Embeddings and positions | Integer gather, repeated-index gradient accumulation, RoPE and its backward transform.                          | Adapter gather/scatter; Rope with explicit pairing and position conventions.      |
 | Training state           | Zero/accumulate gradients, finite-value check, gradient norm/clipping, SGD and AdamW updates.                   | Blasf and Optim plus adapter state management.                                    |
 | Attention                | Scaled dot-product attention, masks, grouped-query composition, and backward operations.                        | Attention per query/head with framework batch and sequence orchestration.         |
@@ -87,6 +88,10 @@ Storage movement, shape-only transformations, random-number generation, indexing
 and elementary tensor operations require some adapter logic. Existing Vectrix
 kernels remain the preferred numerical implementations. Propose new reusable CPU
 math kernels upstream when a missing operation would otherwise be duplicated.
+
+The implemented [spatial contract](cnn-guide.md) specifies convolution weight
+layout, floor output sizing, symmetric padding, deterministic pooling ties/NaNs,
+excluded-pad averages, empty batches, and provider workspace limits.
 
 Fused normalization, attention, activation, and optimizer kernels are useful
 optimizations. Their unfused semantics remain the reference contract. GPU

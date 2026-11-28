@@ -32,6 +32,9 @@ public record KernelCall(Operation operation, List<KernelTensor> inputs, KernelT
             case NORM_BACKWARD -> attributes.flag("rms") ? 3 : 4;
             case ROPE, ROPE_BACKWARD -> attributes.has("positions") ? 2 : 1;
             case CONCAT -> inputs.size();
+            case CONV2D -> attributes.flag("bias") ? 3 : 2;
+            case CONV2D_BACKWARD -> attributes.flag("bias") ? 4 : 3;
+            case MAX_POOL2D_BACKWARD, AVG_POOL2D_BACKWARD -> 2;
             default -> 1;
         };
         if (inputs.size() != count || operation == Operation.CONCAT && inputs.isEmpty()) {
@@ -116,6 +119,29 @@ public record KernelCall(Operation operation, List<KernelTensor> inputs, KernelT
                 yield loss;
             }
             case NORM_BACKWARD -> inputs.get(attributes.intValue("which")).layout().shape();
+            case CONV2D, CONV2D_BACKWARD -> {
+                var config = org.dynamisengine.nn.ops.Conv2dConfig.fromAttributes(attributes);
+                Shape image = org.dynamisengine.nn.ops.Conv2dConfig.imageShape(first);
+                Shape weights = inputs.get(1).layout().shape();
+                require(weights.rank()==4 && weights.equals(config.weightShape(image.dimension(0),weights.dimension(0))), "Convolution weight shape");
+                Shape result = config.outputShape(first,weights.dimension(0));
+                if (attributes.flag("bias")) { require(inputs.get(2).layout().shape().equals(Shape.of(weights.dimension(0))), "Convolution bias shape"); }
+                if (operation==Operation.CONV2D_BACKWARD) {
+                    int which = attributes.intValue("which");
+                    require(which>=0 && which<(attributes.flag("bias") ? 3 : 2), "Convolution gradient index");
+                    require(inputs.getLast().layout().shape().equals(result), "Convolution seed shape");
+                    yield inputs.get(which).layout().shape();
+                }
+                yield result;
+            }
+            case MAX_POOL2D, AVG_POOL2D, MAX_POOL2D_BACKWARD, AVG_POOL2D_BACKWARD -> {
+                Shape result = org.dynamisengine.nn.ops.Pool2dConfig.fromAttributes(attributes).outputShape(first);
+                if (operation==Operation.MAX_POOL2D_BACKWARD || operation==Operation.AVG_POOL2D_BACKWARD) {
+                    require(inputs.get(1).layout().shape().equals(result), "Pooling seed shape");
+                    yield first;
+                }
+                yield result;
+            }
             default -> first;
         };
         require(actual.equals(expected), "Output shape for " + operation + ": expected " + expected + ", got " + actual);

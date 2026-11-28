@@ -14,6 +14,7 @@ public final class Examples {
             System.out.println("mlp-xor            Fluent MLP, training, definition and weight restore");
             System.out.println("causal-lm          Fluent decoder, training, restore and cached inference");
             System.out.println("autoencoder        Trainer, shuffled data, evaluation and checkpoint resume");
+            System.out.println("cnn                Convolution/pooling image classifier, validation and resume");
             return;
         }
         switch (args[0]) {
@@ -22,6 +23,7 @@ public final class Examples {
             case "mlp-xor" -> XorTrainingExample.main(new String[0]);
             case "causal-lm" -> CausalLanguageModelExample.main(new String[0]);
             case "autoencoder" -> AutoencoderTrainingExample.main(new String[0]);
+            case "cnn" -> CnnTrainingExample.main(new String[0]);
             default -> throw new IllegalArgumentException("Unknown example: " + args[0] + "; use --list");
         }
     }

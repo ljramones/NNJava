@@ -17,6 +17,10 @@ final class CpuNeuralKernels {
 
     static void execute(KernelCall call, Object[] data, float[] output) {
         Operation op = call.operation();
+        if (CpuSpatialKernels.handles(op)) {
+            CpuSpatialKernels.execute(call,data,output);
+            return;
+        }
         if (op == Operation.LAYER_NORM || op == Operation.RMS_NORM || op == Operation.NORM_BACKWARD) {
             normalize(call, data, output);
             return;

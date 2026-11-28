@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-27",
+  "baseline": "eb90402",
+  "targets": {"jdk": "25", "vectrix": "4.1.0", "dynamisgpu": "1.14.1"},
+  "implemented": [
+    "FP32 channel-first Conv2d forward/backward through Vectrix, including groups/depthwise and independent stride/padding/dilation axes",
+    "FP32 max/average Pool2d forward/backward through Vectrix with deterministic ties and excluded-pad averages",
+    "Functional Ops, standalone modules, immutable CNN specifications, direct Conv2d builder, and sequential builder methods",
+    "CNN definition/model archives and byte-identical full Trainer checkpoint continuation",
+    "Two-convolution classifier with held-out synthetic images and a separate model-only JPMS consumer"
+  ],
+  "checks": [
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks clean verify",
+      "status": "passed", "tests": 140, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Pgpu,metal install",
+      "status": "passed", "tests": 140, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal",
+      "status": "passed",
+      "consumers": ["training", "model-only NN/CNN/LM inference", "exact Metal", "throughput Metal"],
+      "device": "Apple M4 Max"
+    }
+  ],
+  "new_tests": {"spatial_operations": 16, "cnn_builders": 8, "cnn_example": 1},
+  "numerical_validation": [
+    "Independent convolution and padded overlapping pooling references",
+    "Direct Vectrix bitwise forward/input/weight/bias gradient comparison over batches",
+    "Finite differences for convolution input/weight/bias, average pooling and max pooling away from ties",
+    "Grouped/depthwise geometry, strided views and offsets, multiple batch axes and optional bias",
+    "Empty forward/backward batches, first-tie/first-NaN routing, shared-use gradient accumulation",
+    "Invalid seed/index/type/shape checks and oversized scratch rejection before accepted work",
+    "Construction rollback at every parameter allocation and unsupported-provider preflight",
+    "Model-only restore and byte-identical final archives after mid-epoch resume"
+  ],
+  "example": {
+    "task": "Noisy vertical versus horizontal bars, two convolution/pooling stages and dense head",
+    "training_images": 24, "held_out_images": 10,
+    "initial_held_out_cross_entropy": 0.676647,
+    "final_held_out_cross_entropy": 0.000142,
+    "held_out_accuracy": 1.0, "optimizer_updates": 240,
+    "resume": "Exact output equality with uninterrupted training"
+  },
+  "limits": [
+    "CNN computation is CPU-only; GPU convolution/pooling gaps G-E4/G-T8 remain open",
+    "Pooling uses square windows, symmetric padding, floor sizing and excluded-pad averages",
+    "Transposed convolution and channels-last layouts are outside this chunk",
+    "CPU scratch is allocated per call and convolution gradients dispatch separately",
+    "The synthetic classifier is correctness evidence, not production image benchmark or GPU performance evidence",
+    "Recurrent RNN/LSTM/GRU APIs and examples remain the next classical-network chunk"
+  ]
+}

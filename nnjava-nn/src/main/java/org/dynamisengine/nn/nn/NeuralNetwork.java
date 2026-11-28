@@ -134,6 +134,11 @@ public final class NeuralNetwork extends AbstractModule implements UnaryModule {
         public Builder layerNorm(String name, float epsilon) { return layer(name, Layers.layerNorm(epsilon)); }
         public Builder rmsNorm(String name, float epsilon) { return layer(name, Layers.rmsNorm(epsilon)); }
         public Builder flatten(String name) { return layer(name, Layers.flatten()); }
+        public Builder conv2d(String name,long outputs,int kernel) { return layer(name,Layers.conv2d(outputs,kernel)); }
+        public Builder conv2d(String name,long outputs,int kernel,Activation.Kind activation) { return layer(name,Layers.conv2d(outputs,kernel).activation(activation)); }
+        public Builder conv2d(String name,Layers.Convolution definition) { return layer(name,definition); }
+        public Builder maxPool2d(String name,int window) { return layer(name,Layers.maxPool2d(window)); }
+        public Builder avgPool2d(String name,int window) { return layer(name,Layers.avgPool2d(window)); }
         public Builder reshape(String name, long... shape) { return layer(name, Layers.reshape(shape)); }
         public Definition define() {
             if (inputShape == null) { throw new IllegalArgumentException(name + ": input shape is required"); }

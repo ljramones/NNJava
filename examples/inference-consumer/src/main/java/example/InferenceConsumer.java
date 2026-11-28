@@ -5,6 +5,8 @@ import java.util.Arrays;
 import org.dynamisengine.nn.io.ModelDefinitions;
 import org.dynamisengine.nn.io.StateArchive;
 import org.dynamisengine.nn.nn.NeuralNetwork;
+import org.dynamisengine.nn.nn.Layers;
+import org.dynamisengine.nn.nn.Activation;
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.runtime.ExecutionContext;
 import org.dynamisengine.nn.tensor.Shape;
@@ -28,6 +30,19 @@ public final class InferenceConsumer {
                         var input = context.tensor(new float[] {1, 2}, Shape.of(1, 2)); var output = network.forward(input)) {
                     if (!output.shape().equals(Shape.of(1, 3))) { throw new AssertionError("Fluent NN shape differs"); }
                 }
+                var cnnDefinition=NeuralNetwork.builder().inputShape(1,5,5).seed(42)
+                        .conv2d("features",Layers.conv2d(2,3).padding(1).activation(Activation.Kind.RELU))
+                        .maxPool2d("pool",2).flatten("flat").dense("head",2).define();
+                ModelDefinitions.write(description,cnnDefinition.specification());
+                try (var cnn=cnnDefinition.build(context); var restoredCnn=NeuralNetwork.Definition.fromSpec(ModelDefinitions.read(description)).build(context);
+                     var image=context.normal(Shape.of(2,1,5,5),7,.2f,false)) {
+                    cnn.training(false); StateArchive.saveWeights(weights,cnn); StateArchive.read(weights).restoreModel(restoredCnn);
+                    try (var expected=cnn.forward(image); var actual=restoredCnn.forward(image)) {
+                        if (!actual.shape().equals(Shape.of(2,2)) || !Arrays.equals(expected.toFloatArray(),actual.toFloatArray())) {
+                            throw new AssertionError("Packaged CNN definition/weights restore failed");
+                        }
+                    }
+                }
                 model.training(false); StateArchive.saveWeights(weights, model); StateArchive.read(weights).restoreModel(restored);
                 try (var expected = model.forward(tokens); var actual = restored.forward(tokens)) {
                     if (!Arrays.equals(expected.toFloatArray(), actual.toFloatArray())) { throw new AssertionError("Restored model differs"); }
@@ -40,7 +55,7 @@ public final class InferenceConsumer {
                         }
                     }
                 }
-                System.out.println("Fluent NN/LM definitions, model-only restore and cached inference passed");
+                System.out.println("Fluent NN/CNN/LM definitions, model-only restore and cached inference passed");
             }
         } finally { Files.deleteIfExists(weights); Files.deleteIfExists(description); }
     }

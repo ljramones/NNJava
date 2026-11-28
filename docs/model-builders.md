@@ -30,8 +30,9 @@ definition can build multiple independent models. `build(context)` is the short
 terminal form when a separate definition is unnecessary.
 
 Supported sequential specifications include dense projections with optional
-activations, standalone activations, dropout, LayerNorm/RMSNorm, flatten, and
-reshape. `Layers.dense(32).bias(false)` configures an immutable layer through
+activations, grouped/depthwise convolution, max/average pooling, standalone
+activations, dropout, LayerNorm/RMSNorm, flatten, and reshape. See the
+[CNN guide](cnn-guide.md) for spatial settings. `Layers.dense(32).bias(false)` configures an immutable layer through
 `.layer("projection", specification)`. `Linear.builder()` also supports explicit
 input/output feature counts, bias selection, seed, definition, and construction.
 Additional initializer families and precision policies remain planned.

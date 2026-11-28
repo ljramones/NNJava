@@ -5,6 +5,8 @@ import java.util.Map;
 import org.dynamisengine.nn.backend.Operation;
 import org.dynamisengine.nn.model.ComponentSpec;
 import org.dynamisengine.nn.ops.Ops;
+import org.dynamisengine.nn.ops.Conv2dConfig;
+import org.dynamisengine.nn.ops.Pool2dConfig;
 import org.dynamisengine.nn.runtime.ExecutionContext;
 import org.dynamisengine.nn.tensor.DType;
 import org.dynamisengine.nn.tensor.Shape;
@@ -20,6 +22,10 @@ public final class Layers {
     public static Normalization rmsNorm(float epsilon) { return new Normalization(NormalizationKind.RMS, epsilon); }
     public static Flatten flatten() { return new Flatten(); }
     public static Reshape reshape(long... dimensions) { return new Reshape(ModelBuild.sampleShape(Shape.of(dimensions))); }
+    public static Convolution conv2d(long outputs,int kernel) { return conv2d(outputs,kernel,kernel); }
+    public static Convolution conv2d(long outputs,int height,int width) { return new Convolution(outputs,new Conv2dConfig(height,width),true,null); }
+    public static Pooling maxPool2d(int window) { return new Pooling(Pool2d.Kind.MAX,new Pool2dConfig(window)); }
+    public static Pooling avgPool2d(int window) { return new Pooling(Pool2d.Kind.AVERAGE,new Pool2dConfig(window)); }
 
     public static LayerDefinition fromSpec(ComponentSpec spec) {
         if (!spec.children().isEmpty()) { throw new IllegalArgumentException(spec.name() + ": layer has unexpected children"); }
@@ -46,6 +52,15 @@ public final class Layers {
             case "nnjava.reshape" -> {
                 spec.require("nnjava.reshape", 1, "shape");
                 yield new Reshape(parseShape(spec.attribute("shape")));
+            }
+            case "nnjava.convolution" -> {
+                Conv2d.require(spec,"nnjava.convolution","outputs","bias","activation");
+                String activation=spec.attribute("activation");
+                yield new Convolution(spec.longValue("outputs"),Conv2d.settings(spec),spec.booleanValue("bias"),activation.equals("NONE") ? null : Activation.Kind.valueOf(activation));
+            }
+            case "nnjava.pool2d" -> {
+                spec.require("nnjava.pool2d",1,"kind","window","stride","padding");
+                yield new Pooling(Pool2d.Kind.valueOf(spec.attribute("kind")),new Pool2dConfig(spec.intValue("window"),spec.intValue("stride"),spec.intValue("padding")));
             }
             default -> throw new IllegalArgumentException("Unknown layer type: " + spec.type());
         };
@@ -144,6 +159,77 @@ public final class Layers {
         @Override public void validate(ExecutionContext context, Shape input, String path) { outputShape(input); ModelBuild.require(context, path, DType.FP32, Operation.COPY); }
         @Override public UnaryModule build(ExecutionContext context, Shape input, long seed) { return new LayoutLayer(context, input.rank(), shape); }
         @Override public ComponentSpec specification(String name) { return spec("nnjava.reshape", name, Map.of("shape", encodeShape(shape))); }
+    }
+
+    /** Convolution over a trailing [channels,height,width] sample shape. */
+    public record Convolution(long outputs,Conv2dConfig config,boolean bias,Activation.Kind activation) implements LayerDefinition {
+        public Convolution {
+            java.util.Objects.requireNonNull(config);
+            if (outputs<1 || outputs%config.groups()!=0) { throw new IllegalArgumentException("Output channels must be positive and divisible by groups"); }
+        }
+        public Convolution stride(int value) { return stride(value,value); }
+        public Convolution stride(int height,int width) { return new Convolution(outputs,config.stride(height,width),bias,activation); }
+        public Convolution padding(int value) { return padding(value,value); }
+        public Convolution padding(int height,int width) { return new Convolution(outputs,config.padding(height,width),bias,activation); }
+        public Convolution dilation(int value) { return dilation(value,value); }
+        public Convolution dilation(int height,int width) { return new Convolution(outputs,config.dilation(height,width),bias,activation); }
+        public Convolution groups(int value) { return new Convolution(outputs,config.groups(value),bias,activation); }
+        public Convolution bias(boolean value) { return new Convolution(outputs,config,value,activation); }
+        public Convolution activation(Activation.Kind value) { return new Convolution(outputs,config,bias,java.util.Objects.requireNonNull(value)); }
+        private long channels(Shape input) {
+            if (input.rank()!=3) { throw new IllegalArgumentException("Convolution layer requires a [channels,height,width] sample shape"); }
+            return Conv2dConfig.imageShape(input).dimension(0);
+        }
+        @Override public Shape outputShape(Shape input) { channels(input); return config.outputShape(input,outputs); }
+        @Override public void validate(ExecutionContext context,Shape input,String path) {
+            outputShape(input);
+            Conv2d.validate(context,channels(input),outputs,config,bias,path+".conv");
+            if (activation!=null) { new Nonlinearity(activation).validate(context,outputShape(input),path+".activation"); }
+        }
+        @Override public UnaryModule build(ExecutionContext context,Shape input,long seed) {
+            validate(context,input,"convolution"); return new ConvolutionLayer(context,channels(input),this,seed);
+        }
+        @Override public ComponentSpec specification(String name) {
+            var attributes=new java.util.LinkedHashMap<>(Conv2d.settings(config));
+            attributes.put("outputs",Long.toString(outputs)); attributes.put("bias",Boolean.toString(bias));
+            attributes.put("activation",activation==null ? "NONE" : activation.name());
+            return spec("nnjava.convolution",name,attributes);
+        }
+    }
+
+    public record Pooling(Pool2d.Kind kind,Pool2dConfig config) implements LayerDefinition {
+        public Pooling { java.util.Objects.requireNonNull(kind); java.util.Objects.requireNonNull(config); }
+        public Pooling stride(int value) { return new Pooling(kind,config.stride(value)); }
+        public Pooling padding(int value) { return new Pooling(kind,config.padding(value)); }
+        @Override public Shape outputShape(Shape input) {
+            if (input.rank()!=3) { throw new IllegalArgumentException("Pooling layer requires a [channels,height,width] sample shape"); }
+            return config.outputShape(input);
+        }
+        @Override public void validate(ExecutionContext context,Shape input,String path) {
+            outputShape(input);
+            ModelBuild.require(context,path,DType.FP32,kind==Pool2d.Kind.MAX ? Operation.MAX_POOL2D : Operation.AVG_POOL2D,
+                    kind==Pool2d.Kind.MAX ? Operation.MAX_POOL2D_BACKWARD : Operation.AVG_POOL2D_BACKWARD);
+        }
+        @Override public UnaryModule build(ExecutionContext context,Shape input,long seed) { validate(context,input,"pool2d"); return new Pool2d(context,kind,config); }
+        @Override public ComponentSpec specification(String name) {
+            return spec("nnjava.pool2d",name,Map.of("kind",kind.name(),"window",Integer.toString(config.window()),"stride",Integer.toString(config.stride()),"padding",Integer.toString(config.padding())));
+        }
+    }
+
+    private static final class ConvolutionLayer extends AbstractModule implements UnaryModule {
+        private final Conv2d convolution;
+        private final Activation activation;
+        ConvolutionLayer(ExecutionContext context,long inputs,Convolution definition,long seed) {
+            super(context);
+            try {
+                convolution=register("conv",new Conv2d(context,inputs,definition.outputs,definition.config,seed,definition.bias));
+                activation=definition.activation==null ? null : register("activation",new Activation(context,definition.activation));
+            } catch (RuntimeException | Error error) { close(); throw error; }
+        }
+        @Override public Tensor forward(Tensor input) {
+            ensureOpen();
+            try (var projected=convolution.forward(input)) { return activation==null ? projected.retain() : activation.forward(projected); }
+        }
     }
 
     private static final class DenseLayer extends AbstractModule implements UnaryModule {

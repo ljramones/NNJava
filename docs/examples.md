@@ -2,7 +2,7 @@
 
 `nnjava-examples` is a first-class Maven module with regression and small
 transformer training examples, fluent MLP and causal-decoder workflows, and a
-Trainer-based bottleneck autoencoder with checkpoint resume.
+Trainer-based bottleneck autoencoder and CNN classifier with checkpoint resume.
 The broader architecture catalog below remains planned where its layers are absent. It serves as a learning
 catalog, an API usability check, and end-to-end validation of the library.
 
@@ -11,9 +11,10 @@ architectures, task-specific data preparation, and training recipes belong here.
 Production modules must not depend on examples.
 
 Current runner entries include `linear-regression`, `transformer` (direct component
-composition), `mlp-xor`, and `causal-lm`. The latter two train, save/reload definitions
-and weights, and run as CPU smoke tests. The causal example also verifies cached
-decoding. See the [builder API guide](model-builders.md).
+composition), `mlp-xor`, `causal-lm`, `autoencoder`, and `cnn`. All have CPU smoke
+tests. Fluent models cover definition/state restore; the decoder checks caching,
+and autoencoder/CNN examples compare resumed and uninterrupted training. See the
+[builder API guide](model-builders.md) and [CNN guide](cnn-guide.md).
 
 ## Architecture catalog and order
 
@@ -38,7 +39,8 @@ sequence boundaries, state reset, variable lengths, and optional truncated
 backpropagation. A cell interface and a sequence-level convenience layer should
 both be available so the examples teach composition as well as the short API.
 
-CNN and recurrent primitives are planned requirements for this catalog. Where a
+CNN convolution/pooling primitives and EX-04 are implemented on CPU; recurrent
+primitives remain planned. Where a
 numerical primitive is missing, record the Vectrix kernel requirement separately;
 examples must not implement replacement numerical kernels.
 

@@ -7,7 +7,7 @@ the executable module in a chosen context.
 
 Implemented now: sequential/Linear and causal-language-model definitions, named
 NN builders, decoder configuration, custom-layer decoder hooks, checked definition
-files, and CPU cache sessions. The [API guide](model-builders.md) documents exact
+files, CNN convolution/pooling, and CPU cache sessions. The [API guide](model-builders.md) documents exact
 behavior and runnable examples. Trainer APIs are described in the
 [training guide](training-guide.md); generation builders remain proposed.
 
@@ -77,19 +77,20 @@ available for application-specific composition.
 
 The first-class [examples module](examples.md) exercises builders for CNNs,
 vanilla RNNs, LSTMs, GRUs, and autoencoders as the supporting layers are added.
-For example, the proposed CNN shape is:
+The CNN builder is implemented; see the [spatial API guide](cnn-guide.md):
 
 ```java
 var imageClassifier = NeuralNetwork.builder()
     .inputShape(1, 28, 28)
-    .conv2d("features", c -> c.filters(16).kernel(3).activation(ActivationKind.RELU))
+    .conv2d("features", Layers.conv2d(16, 3).activation(Activation.Kind.RELU))
     .maxPool2d("pool", 2)
     .flatten("flatten")
     .dense("logits", 10)
     .define();
 ```
 
-Sequence builders should expose cell/state behavior and output selection:
+Recurrent sequence builders remain proposed and should expose cell/state behavior
+and output selection:
 
 ```java
 var forecaster = NeuralNetwork.builder()
