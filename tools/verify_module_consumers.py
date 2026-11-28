@@ -11,10 +11,13 @@ parser.add_argument("--gpu-metal", action="store_true")
 parser.add_argument("--repository", type=Path, default=Path.home() / ".m2/repository")
 parser.add_argument("--pretrained-dir", type=Path, help="Opt-in pinned SmolLM2 assets plus independently generated reference")
 parser.add_argument("--pretrained-report", type=Path)
+parser.add_argument("--pretrained-provider", choices=("vectrix", "vectrix-gpu-exact", "dynamis-gpu-throughput"), default="vectrix")
 parser.add_argument("--simd", action="store_true", help="Use installed SIMD Vectrix artifacts and enable the vector module")
 args = parser.parse_args()
 if args.pretrained_report and args.pretrained_dir is None:
     parser.error("--pretrained-report requires --pretrained-dir")
+if args.pretrained_provider != "vectrix" and (not args.gpu_metal or args.pretrained_dir is None):
+    parser.error("A GPU pretrained provider requires --gpu-metal and --pretrained-dir")
 root = Path(__file__).resolve().parents[1]
 repository = args.repository / "org/dynamisengine"
 
@@ -30,7 +33,8 @@ def run(module, paths, *arguments, native=False):
     if args.simd:
         command += ["--add-modules", "jdk.incubator.vector"]
     if native:
-        command += ["--enable-native-access=org.dynamisengine.gpu.metal"]
+        # 1.14.1's native jar has no GpuProvider service entry, so resolve the supplied runtime explicitly.
+        command += ["--add-modules", "org.dynamisengine.gpu.metal", "--enable-native-access=org.dynamisengine.gpu.metal"]
         # Published shader packages are encapsulated; KernelLibrary reads them
         # from dynamis-gpu-api. Open only these resource packages to that module.
         for shader_module, package in (
@@ -69,8 +73,9 @@ pretrained = [artifact(name, "0.1.0-SNAPSHOT") for name in ("nnjava-pretrained",
 pretrained_arguments = ["--self-test"] if args.pretrained_dir is None else [str(args.pretrained_dir.resolve())]
 if args.pretrained_report:
     pretrained_arguments.append(str(args.pretrained_report.resolve()))
-run("example.nnjava.pretrained/example.PretrainedConsumer",
-    [root / "examples/pretrained-consumer/target/classes", *pretrained, *generation, *formats, *numerics], *pretrained_arguments)
+if args.pretrained_provider == "vectrix":
+    run("example.nnjava.pretrained/example.PretrainedConsumer",
+        [root / "examples/pretrained-consumer/target/classes", *pretrained, *generation, *formats, *numerics], *pretrained_arguments)
 if args.gpu_metal:
     gpu = [artifact(name, "0.1.0-SNAPSHOT") for name in ("nnjava-core", "nnjava-backend-vectrix-gpu")]
     gpu += [artifact("vectrix-gpu", "4.1.0"), *numerics]
@@ -78,3 +83,10 @@ if args.gpu_metal:
     for provider in ("vectrix-gpu-exact", "dynamis-gpu-throughput"):
         run("example.nnjava.gpu/example.GpuConsumer",
             [root / "examples/gpu-consumer/target/classes", *gpu], provider, native=True)
+    if args.pretrained_provider != "vectrix":
+        report = args.pretrained_report or args.pretrained_dir / f"nnjava-{args.pretrained_provider}.json"
+        # Deliberately omit the CPU provider; generation borrows the selected GPU model and device caches.
+        model_modules = [path for path in generation if path.name != "nnjava-backend-vectrix-0.1.0-SNAPSHOT.jar"]
+        paths = list(dict.fromkeys([root / "examples/pretrained-consumer/target/classes", *pretrained, *model_modules, *formats, *gpu]))
+        run("example.nnjava.pretrained/example.PretrainedConsumer", paths,
+            str(args.pretrained_dir.resolve()), str(report.resolve()), args.pretrained_provider, native=True)

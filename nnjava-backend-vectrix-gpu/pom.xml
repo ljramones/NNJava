@@ -87,12 +87,29 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.dynamisengine</groupId>
+            <artifactId>nnjava-pretrained</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.dynamisengine</groupId>
+            <artifactId>nnjava-generation</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
     <build>
+        <testResources>
+            <testResource><directory>src/test/resources</directory></testResource>
+            <testResource>
+                <directory>${project.basedir}/../nnjava-integration-tests/src/test/resources</directory>
+                <includes><include>pretrained/**</include></includes>
+            </testResource>
+        </testResources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

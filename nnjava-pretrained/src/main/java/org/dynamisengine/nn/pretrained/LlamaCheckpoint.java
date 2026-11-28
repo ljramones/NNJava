@@ -25,9 +25,7 @@ public final class LlamaCheckpoint {
         var definition = configuration.definition(contextCapacity);
         try (var file = openWeights()) {
             var loader = weightLoader(configuration, file);
-            var model = definition.build(context);
-            try { loader.load(file, model); return model; }
-            catch (RuntimeException | Error failure) { model.close(); throw failure; }
+            return loader.build(file, definition, context);
         }
     }
 

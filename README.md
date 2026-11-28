@@ -7,8 +7,9 @@ training recipes in separate projects. Fluent NN/causal-model definitions and CP
 cache sessions, fluent training, token generation, and optional byte-level BPE
 are implemented, alongside general GGUF/safetensors readers, explicit weight mappings,
 and GPT-2/selected ByteLevel tokenizer-file loading. An optional Llama adapter now
-runs SmolLM2-135M against independent tokenizer/logit references on scalar and SIMD CPU.
-GPU model execution, pretraining data workflows, and fine-tuning remain on the roadmap. A separate experimental GGUF/Metal path is
+runs SmolLM2-135M against independent tokenizer/logit references on scalar/SIMD CPU
+and both native Metal GPU modes, including cached generation. Pretraining data
+workflows, fine-tuning and optimized GPU serving remain on the roadmap. A separate experimental GGUF/Metal path is
 described below.
 
 ## Build and run
@@ -142,13 +143,16 @@ activations, softmax, normalization, sums/norms, dropout and their supported gra
 have been exercised locally on Metal in both modes. Masks/comparisons, word casts,
 general gather/scatter, concat/slice gradients, max/argmax and RoPE now support
 embedding and masked grouped-query attention compositions with gradients.
-Full NN/LLM inference still needs model construction/loading and session integration;
-Trainer workflows need further kernel coverage. Vulkan execution is not yet verified
+Explicit zero-initialized construction supports supplied-weight dense networks and
+causal decoders. Full SmolLM2 FP32 inference and device-cache generation pass in both
+Metal modes. Trainer workflows need further kernel coverage. Vulkan execution is not yet verified
 here. See the [implemented capability limits](docs/module-migration.md#initial-gpu-capabilities).
 The [GPU neural-operation guide](docs/gpu-neural-operations.md) covers exact/throughput
 selection, layout handling, gradient checks and remaining model-execution gates.
 The [GPU tensor-operation guide](docs/gpu-tensor-operations.md) documents indexing,
 mask semantics, rotary positions and data-dependent error handling.
+The [GPU model-inference guide](docs/gpu-model-inference.md) covers construction,
+checkpoint loading, cached decoding and real-model reference results.
 
 ```sh
 mvn -Pgpu,metal clean install

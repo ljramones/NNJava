@@ -12,11 +12,15 @@ public final class Embedding extends AbstractModule implements UnaryModule {
     private final Parameter weight;
 
     public Embedding(ExecutionContext context, long vocabulary, long features, long seed) {
+        this(context, vocabulary, features, seed, ParameterInitialization.DEFAULT);
+    }
+
+    public Embedding(ExecutionContext context, long vocabulary, long features, long seed, ParameterInitialization initialization) {
         super(context);
         if (vocabulary <= 0 || features <= 0) {
             throw new IllegalArgumentException("Positive embedding dimensions required");
         }
-        try (Tensor initial = context.normal(Shape.of(vocabulary, features), seed, .02f, true)) {
+        try (Tensor initial = java.util.Objects.requireNonNull(initialization).normal(context, Shape.of(vocabulary, features), seed, .02f)) {
             weight = register("weight", initial);
         }
     }

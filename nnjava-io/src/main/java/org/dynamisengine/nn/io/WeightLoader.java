@@ -17,6 +17,9 @@ import org.dynamisengine.nn.formats.TensorFile;
 import org.dynamisengine.nn.formats.TensorType;
 import org.dynamisengine.nn.nn.Module;
 import org.dynamisengine.nn.nn.Parameter;
+import org.dynamisengine.nn.nn.ModelDefinition;
+import org.dynamisengine.nn.nn.ParameterInitialization;
+import org.dynamisengine.nn.runtime.ExecutionContext;
 import org.dynamisengine.nn.state.TensorSnapshot;
 import org.dynamisengine.nn.tensor.DType;
 import org.dynamisengine.nn.tensor.Shape;
@@ -46,6 +49,17 @@ public final class WeightLoader {
         allSources = builder.allSources; floatingToFp32 = builder.floatingToFp32; maxTensorBytes = builder.maxTensorBytes;
     }
     public static Builder builder() { return new Builder(); }
+
+    /** Builds zero-initialized storage, validates and loads all weights, and closes an unreturned model on failure. */
+    public <M extends Module> M build(TensorFile source, ModelDefinition<M> definition, ExecutionContext context) {
+        Objects.requireNonNull(source); Objects.requireNonNull(definition);
+        M model = definition.build(context, ParameterInitialization.ZEROS);
+        try { load(source, model); return model; }
+        catch (RuntimeException | Error failure) {
+            try { model.close(); } catch (RuntimeException | Error cleanup) { if (cleanup != failure) { failure.addSuppressed(cleanup); } }
+            throw failure;
+        }
+    }
 
     /** Reads one unquantized tensor into an owned, backend-neutral host snapshot, preserving its dtype. */
     public static TensorSnapshot readTensor(TensorFile source, String name) {

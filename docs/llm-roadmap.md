@@ -10,9 +10,10 @@ distinguishes implemented and planned APIs. CPU configurable models, cache sessi
 single-sequence generation, and optional byte-level BPE now have implementations;
 see the [generation guide](generation-guide.md). The main stack pins Vectrix 4.1.0
 and DynamisGPU 1.14.1. General weight/tokenizer readers and the first optional Llama
-adapter are implemented; SmolLM2-135M passes CPU reference-token/logit acceptance.
+adapter are implemented; SmolLM2-135M passes scalar/SIMD CPU and both native Metal
+GPU modes against independent reference tokens/logits, with cached generation.
 Further checkpoint compatibility, corpus workflows, adaptation,
-GPU model execution, and scale features remain separate milestones. The standalone
+optimized GPU cache/sampling/replay, and scale features remain separate milestones. The standalone
 GGUF/Metal experiment retains its own dependency and accuracy limits.
 
 ## Library and application responsibilities

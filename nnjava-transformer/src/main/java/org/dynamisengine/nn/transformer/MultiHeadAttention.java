@@ -3,6 +3,7 @@ package org.dynamisengine.nn.transformer;
 import org.dynamisengine.nn.nn.AbstractModule;
 import org.dynamisengine.nn.nn.Dropout;
 import org.dynamisengine.nn.nn.Linear;
+import org.dynamisengine.nn.nn.ParameterInitialization;
 import org.dynamisengine.nn.nn.UnaryModule;
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.runtime.ExecutionContext;
@@ -22,14 +23,18 @@ public final class MultiHeadAttention extends AbstractModule implements UnaryMod
     }
 
     public MultiHeadAttention(ExecutionContext context, Config config, long seed) {
+        this(context, config, seed, ParameterInitialization.DEFAULT);
+    }
+
+    public MultiHeadAttention(ExecutionContext context, Config config, long seed, ParameterInitialization initialization) {
         super(context);
         this.config = config;
         int kvFeatures = Math.multiplyExact(config.kvHeads, config.features / config.heads);
         try {
-            query = register("query", new Linear(context, config.features, config.features, seed, config.bias));
-            key = register("key", new Linear(context, config.features, kvFeatures, seed + 1, config.bias));
-            value = register("value", new Linear(context, config.features, kvFeatures, seed + 2, config.bias));
-            output = register("output", new Linear(context, config.features, config.features, seed + 3, config.bias));
+            query = register("query", new Linear(context, config.features, config.features, seed, config.bias, initialization));
+            key = register("key", new Linear(context, config.features, kvFeatures, seed + 1, config.bias, initialization));
+            value = register("value", new Linear(context, config.features, kvFeatures, seed + 2, config.bias, initialization));
+            output = register("output", new Linear(context, config.features, config.features, seed + 3, config.bias, initialization));
             dropout = register("dropout", new Dropout(context, config.dropout, seed + 4));
             rotary = config.rotary ? register("rotary", new RotaryEmbedding(context, config.rotaryBase, true)) : null;
         } catch (RuntimeException | Error error) { close(); throw error; }

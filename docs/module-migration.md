@@ -104,7 +104,9 @@ view from its allocation on the host.
 
 Stateful optimizers, cross-entropy, normal initialization and FP16/BF16 computation
 remain unsupported through this adapter. These gates must pass before claiming
-complete model inference or Trainer workflows. See [GPU neural operations](gpu-neural-operations.md)
+complete Trainer workflows. Supplied-weight model construction and FP32 transformer
+inference now pass on Metal through the explicit loading policy; see
+[GPU model inference](gpu-model-inference.md). See [GPU neural operations](gpu-neural-operations.md)
 for the tested compositions, row limits and tier choices.
 The [tensor-operation guide](gpu-tensor-operations.md) adds embedding/rotary/masked
 GQA gradient checks, layout semantics and invalid-index completion behavior.
@@ -134,6 +136,11 @@ The subsequent [GPU tensor-operation record](evidence/gpu-tensor-2026-11-27.json
 covers 288 passing tests, including the neural/indexing/rotary extensions and both
 installed Metal consumers. It retains the distinction between operation coverage
 and complete model inference.
+
+The [model-inference record](evidence/gpu-model-2026-11-27.json) adds 300 passing
+reactor tests and real SmolLM2 acceptance in both Metal modes, including independent
+reference logits, device caches and generation. These are correctness checks;
+optimized GPU serving and training remain follow-on milestones.
 
 ## Verification commands
 

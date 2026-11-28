@@ -152,7 +152,12 @@ public final class ExecutionContext implements AutoCloseable {
     }
 
     public Tensor full(Shape shape, float value) {
-        Tensor result = empty(DType.FP32, shape);
+        return full(shape, value, false);
+    }
+
+    /** Constant FP32 storage, optionally a trainable leaf, initialized by the selected backend. */
+    public Tensor full(Shape shape, float value, boolean requiresGrad) {
+        Tensor result = allocate(DType.FP32, shape, requiresGrad);
         try {
             fill(result, value);
             return result;

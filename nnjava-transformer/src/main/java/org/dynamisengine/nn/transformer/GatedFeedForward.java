@@ -2,6 +2,7 @@ package org.dynamisengine.nn.transformer;
 
 import org.dynamisengine.nn.nn.AbstractModule;
 import org.dynamisengine.nn.nn.Linear;
+import org.dynamisengine.nn.nn.ParameterInitialization;
 import org.dynamisengine.nn.nn.UnaryModule;
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.runtime.ExecutionContext;
@@ -14,11 +15,15 @@ public final class GatedFeedForward extends AbstractModule implements UnaryModul
     private final Linear gate, up, down;
 
     public GatedFeedForward(ExecutionContext context, int features, int hidden, long seed) {
+        this(context, features, hidden, seed, ParameterInitialization.DEFAULT);
+    }
+
+    public GatedFeedForward(ExecutionContext context, int features, int hidden, long seed, ParameterInitialization initialization) {
         super(context);
         try {
-            gate = register("gate", new Linear(context, features, hidden, seed, false));
-            up = register("up", new Linear(context, features, hidden, seed + 1, false));
-            down = register("down", new Linear(context, hidden, features, seed + 2, false));
+            gate = register("gate", new Linear(context, features, hidden, seed, false, initialization));
+            up = register("up", new Linear(context, features, hidden, seed + 1, false, initialization));
+            down = register("down", new Linear(context, hidden, features, seed + 2, false, initialization));
         } catch (RuntimeException | Error error) { close(); throw error; }
     }
 

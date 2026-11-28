@@ -63,6 +63,13 @@ Ignored tensors are reported but their contents are not compared with tied weigh
 One source may map to one unique target. Matrix transpose is explicit; general
 axis permutation and model-family transformations need additional adapters.
 
+For supported definitions, `loader.build(file, definition, context)` constructs
+backend-zero-initialized parameters, validates complete mappings and loads every
+weight before returning an owned model. It closes an unreturned model on failure.
+This path works without a normal initializer and supports CPU and Metal GPU
+contexts. `LlamaCheckpoint.load` uses it automatically. Definition support and GPU
+acceptance are described in [GPU model inference](gpu-model-inference.md).
+
 Structural validation completes before the first assignment. Loading then stages
 one tensor, assigns it, synchronizes, and clears its gradient. The default budget
 limits each source and expanded payload to 256 MiB; temporary snapshot/backend
@@ -125,6 +132,9 @@ Standalone JPMS consumers exercise format-only parsing, model-only weight import
 and tokenizer-file loading without training or numerical tokenizer dependencies.
 The initial format fixtures are synthetic. A subsequent optional Llama adapter and
 [real SmolLM2 validation](pretrained-model-validation.md) now check a selected checkpoint
-against reference tokens, all-vocabulary logits and complete CPU inference requests.
+against reference tokens, all-vocabulary logits and complete CPU/Metal inference requests.
 The [verification record](evidence/pretrained-loading-2026-11-27.json) records
 243 passing scalar/SIMD/Metal reactor tests and the standalone consumer checks.
+The later [GPU model-inference record](evidence/gpu-model-2026-11-27.json) covers
+explicit supplied-weight construction, 300 passing reactor tests and real Metal
+checkpoint acceptance.

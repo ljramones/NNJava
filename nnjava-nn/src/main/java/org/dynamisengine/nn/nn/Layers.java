@@ -90,16 +90,22 @@ public final class Layers {
         public Dense activation(Activation.Kind value) { return new Dense(outputs, bias, java.util.Objects.requireNonNull(value)); }
         @Override public Shape outputShape(Shape input) { features(input); return input.replace(input.rank() - 1, outputs); }
         @Override public void validate(ExecutionContext context, Shape input, String path) {
+            validate(context, input, path, ParameterInitialization.DEFAULT);
+        }
+        @Override public void validate(ExecutionContext context, Shape input, String path, ParameterInitialization initialization) {
             outputShape(input);
-            ModelBuild.parameter(context, path + ".linear.weight", Shape.of(outputs, features(input)), true);
+            java.util.Objects.requireNonNull(initialization).validate(context, path + ".linear.weight", Shape.of(outputs, features(input)));
             if (bias) { ModelBuild.parameter(context, path + ".linear.bias", Shape.of(outputs), false); }
             ModelBuild.require(context, path, DType.FP32, Operation.COPY, Operation.FILL, Operation.MATMUL, Operation.SUM_TO);
             if (bias) { ModelBuild.require(context, path, DType.FP32, Operation.ADD); }
             if (activation != null) { new Nonlinearity(activation).validate(context, outputShape(input), path + ".activation"); }
         }
         @Override public UnaryModule build(ExecutionContext context, Shape input, long seed) {
-            validate(context, input, "dense");
-            return new DenseLayer(context, features(input), this, seed);
+            return build(context, input, seed, ParameterInitialization.DEFAULT);
+        }
+        @Override public UnaryModule build(ExecutionContext context, Shape input, long seed, ParameterInitialization initialization) {
+            validate(context, input, "dense", initialization);
+            return new DenseLayer(context, features(input), this, seed, initialization);
         }
         @Override public ComponentSpec specification(String name) {
             return spec("nnjava.dense", name, Map.of("outputs", Long.toString(outputs), "bias", Boolean.toString(bias),
@@ -115,6 +121,12 @@ public final class Layers {
             ModelBuild.require(context, path, DType.FP32, Operation.valueOf(kind.name()), Operation.valueOf(kind.name() + "_BACKWARD"));
         }
         @Override public UnaryModule build(ExecutionContext context, Shape input, long seed) { return new Activation(context, kind); }
+        @Override public void validate(ExecutionContext context, Shape input, String path, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); validate(context, input, path);
+        }
+        @Override public UnaryModule build(ExecutionContext context, Shape input, long seed, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); return build(context, input, seed);
+        }
         @Override public ComponentSpec specification(String name) { return spec("nnjava.activation", name, Map.of("kind", kind.name())); }
     }
 
@@ -128,6 +140,12 @@ public final class Layers {
             if (probability > 0) { ModelBuild.require(context, path, DType.FP32, Operation.DROPOUT, Operation.MULTIPLY); }
         }
         @Override public UnaryModule build(ExecutionContext context, Shape input, long seed) { return new Dropout(context, probability, seed); }
+        @Override public void validate(ExecutionContext context, Shape input, String path, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); validate(context, input, path);
+        }
+        @Override public UnaryModule build(ExecutionContext context, Shape input, long seed, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); return build(context, input, seed);
+        }
         @Override public ComponentSpec specification(String name) { return spec("nnjava.dropout", name, Map.of("probability", Float.toHexString(probability))); }
     }
 
@@ -145,6 +163,12 @@ public final class Layers {
         @Override public UnaryModule build(ExecutionContext context, Shape input, long seed) {
             return kind == NormalizationKind.RMS ? new RmsNorm(context, features(input), epsilon) : new LayerNorm(context, features(input), epsilon);
         }
+        @Override public void validate(ExecutionContext context, Shape input, String path, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); validate(context, input, path);
+        }
+        @Override public UnaryModule build(ExecutionContext context, Shape input, long seed, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); return build(context, input, seed);
+        }
         @Override public ComponentSpec specification(String name) {
             return spec("nnjava.normalization", name, Map.of("kind", kind.name(), "epsilon", Float.toHexString(epsilon)));
         }
@@ -154,6 +178,12 @@ public final class Layers {
         @Override public Shape outputShape(Shape input) { return Shape.of(ModelBuild.sampleShape(input).elements()); }
         @Override public void validate(ExecutionContext context, Shape input, String path) { ModelBuild.require(context, path, DType.FP32, Operation.COPY); }
         @Override public UnaryModule build(ExecutionContext context, Shape input, long seed) { return new LayoutLayer(context, input.rank(), outputShape(input)); }
+        @Override public void validate(ExecutionContext context, Shape input, String path, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); validate(context, input, path);
+        }
+        @Override public UnaryModule build(ExecutionContext context, Shape input, long seed, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); return build(context, input, seed);
+        }
         @Override public ComponentSpec specification(String name) { return spec("nnjava.flatten", name, Map.of()); }
     }
 
@@ -165,6 +195,12 @@ public final class Layers {
         }
         @Override public void validate(ExecutionContext context, Shape input, String path) { outputShape(input); ModelBuild.require(context, path, DType.FP32, Operation.COPY); }
         @Override public UnaryModule build(ExecutionContext context, Shape input, long seed) { return new LayoutLayer(context, input.rank(), shape); }
+        @Override public void validate(ExecutionContext context, Shape input, String path, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); validate(context, input, path);
+        }
+        @Override public UnaryModule build(ExecutionContext context, Shape input, long seed, ParameterInitialization initialization) {
+            java.util.Objects.requireNonNull(initialization); return build(context, input, seed);
+        }
         @Override public ComponentSpec specification(String name) { return spec("nnjava.reshape", name, Map.of("shape", encodeShape(shape))); }
     }
 
@@ -269,10 +305,10 @@ public final class Layers {
     private static final class DenseLayer extends AbstractModule implements UnaryModule {
         private final Linear linear;
         private final Activation activation;
-        DenseLayer(ExecutionContext context, long inputs, Dense definition, long seed) {
+        DenseLayer(ExecutionContext context, long inputs, Dense definition, long seed, ParameterInitialization initialization) {
             super(context);
             try {
-                linear = register("linear", new Linear(context, inputs, definition.outputs, seed, definition.bias));
+                linear = register("linear", new Linear(context, inputs, definition.outputs, seed, definition.bias, initialization));
                 activation = definition.activation == null ? null : register("activation", new Activation(context, definition.activation));
             } catch (RuntimeException | Error error) { close(); throw error; }
         }

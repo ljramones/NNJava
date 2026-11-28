@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-27",
+  "baseline": "d0b982e",
+  "targets": {"jdk": "25", "vectrix": "4.1.0", "dynamisgpu": "1.14.1"},
+  "device": "Apple M4 Max, native Metal",
+  "implemented": [
+    "Trainable backend-filled FP32 constants and explicit DEFAULT/ZEROS parameter initialization",
+    "Linear and dense sequential definitions/builders plus complete causal-decoder construction for supplied weights",
+    "Initialization policy propagation through embedding, projections, attention, feed-forward and decoder blocks",
+    "WeightLoader.build owns construction/load cleanup; LlamaCheckpoint uses zero storage on CPU and GPU",
+    "Complete FP32 model inference, growing device K/V caches and portable host-sampled generation",
+    "Canonical singleton GEMM layouts for one-token decode",
+    "Provider-selectable independent JPMS pretrained consumer, without a CPU backend in GPU runs"
+  ],
+  "checks": [
+    {"command": "mvn -o -q -Pgpu,metal install", "status": "passed", "tests": 300, "failures": 0, "errors": 0, "skipped": 0},
+    {"command": "mvn -o -q -Psimd,gpu,metal,benchmarks verify", "status": "passed", "tests": 300, "failures": 0, "errors": 0, "skipped": 0},
+    {"command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify", "status": "passed"},
+    {"command": "python3 tools/pretrained/fetch_smollm2.py --verify-only /private/tmp/nnjava-smollm2-validation", "status": "passed"},
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-provider vectrix-gpu-exact --pretrained-dir /private/tmp/nnjava-smollm2-validation --pretrained-report docs/evidence/smollm2-metal-exact-2026-11-27.json",
+      "status": "passed", "report": "smollm2-metal-exact-2026-11-27.json"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-provider dynamis-gpu-throughput --pretrained-dir /private/tmp/nnjava-smollm2-validation --pretrained-report docs/evidence/smollm2-metal-throughput-2026-11-27.json",
+      "status": "passed", "report": "smollm2-metal-throughput-2026-11-27.json"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --pretrained-dir /private/tmp/nnjava-smollm2-validation --pretrained-report docs/evidence/smollm2-loaded-scalar-2026-11-27.json",
+      "status": "passed", "report": "smollm2-loaded-scalar-2026-11-27.json"
+    }
+  ],
+  "reactor_test_counts": {
+    "core": 5, "formats": 11, "generation": 24, "tokenizers": 26, "pretrained": 4,
+    "integration": 177, "examples": 8, "gpu_adapter": 45, "total": 300,
+    "new_construction_tests": 6, "new_gpu_model_tests": 6
+  },
+  "validation": [
+    "A backend that rejects random initialization constructs zero-initialized Linear, dense networks and tied/untied causal models without invoking randomNormal",
+    "Seeded default architectures/configuration remain compatible; supplied state restores exact CPU results",
+    "Normalization/bias defaults, trainable leaf identity, tied readout identity and every partial transformer parameter-allocation failure",
+    "Custom layers reject alternative initialization before allocation unless they explicitly opt in",
+    "Native tied/untied BF16 Llama fixtures agree with independent Transformers logits, CPU output bits in exact mode and fixture tolerances in throughput mode",
+    "Biased MHA/LayerNorm/GELU decoders and dense models with supplied weights execute on both Metal modes",
+    "Device-cache prefill/chunked decode, reset, stale weight rejection, overflow preflight, generation and allocation baselines",
+    "Twelve injected early/late native checkpoint allocation failures release all owned model and staging allocations",
+    "Explicit zero singleton strides in row/column matrix views reproduce and guard the one-token decode fix"
+  ],
+  "real_model": {
+    "name": "HuggingFaceTB/SmolLM2-135M",
+    "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "decoder_blocks": 30, "unique_parameters": 272, "parameter_bytes_fp32": 538060032,
+    "checkpoint_storage": "BF16 expanded to FP32",
+    "reference": "Pinned independent FP32 eager CPU PyTorch 2.13.0 / Transformers 5.11.0 reference; Python remains optional verification tooling",
+    "compared_logits_per_provider": 737280, "tokenization_vectors": 10,
+    "prompt_cases": 3, "generated_tokens_per_case": 4, "context_capacity": 64,
+    "absolute_tolerance": 0.003, "relative_tolerance": 0.0003,
+    "exact_max_absolute_logit_error": 0.00016546249389648438,
+    "throughput_max_absolute_logit_error": 0.0002460479736328125,
+    "exact_cache_check_max_absolute_error": 0.0,
+    "throughput_cache_check_max_absolute_error": 0.000047206878662109375,
+    "generated_ids_and_text": "Exact agreement in both modes for all three continuations",
+    "gpu_module_path": "Pretrained/generation/tokenizers/io/transformer/layers/core/formats, the GPU adapter and published numerical/native jars; no concrete CPU backend, training or data modules"
+  },
+  "limits": [
+    "DEFAULT remains seeded; GPU normal initialization is still unsupported and no CPU random fallback is introduced",
+    "ZEROS is a construction policy, not a useful symmetric initialization for training; loading supplies all model weights",
+    "Convolution/recurrent and custom loading definitions must explicitly implement the alternative initialization contract",
+    "K/V caches use fixed device allocations, strided runtime copies and the existing synchronized append contract",
+    "Public generation samples on the host and downloads the final logit row; GPU sampler, paged caches and recordings remain follow-on work",
+    "FP32 inference is verified; quantized placement and mixed-precision execution/training are not integrated",
+    "Per-call scratch/packing/dispatch and synchronization remain optimization targets",
+    "Timings are short acceptance requests, not controlled throughput or peak GPU-memory measurements",
+    "Vulkan, long-context acceptance and complete GPU Trainer workflows remain unverified"
+  ],
+  "included_existing_changes": "Reviewed formatting/import/member-order changes in six example and seven format-reader Java files; included as requested"
+}

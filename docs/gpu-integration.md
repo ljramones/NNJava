@@ -128,8 +128,9 @@ Hardware runs:
 The current [GPU neural-operation adapter](gpu-neural-operations.md) adds neural
 functions, sums/norms, batched GEMM and gradient compositions on Metal. The
 [tensor adapter](gpu-tensor-operations.md) adds masks, indexing, RoPE and verified
-embedding/masked GQA gradients. Full GPU model construction/loading and inference
-orchestration remain subsequent gates.
+embedding/masked GQA gradients. The [model-inference integration](gpu-model-inference.md)
+adds supplied-weight construction/loading and full SmolLM2 device-cache inference
+in both Metal modes. Paged caches, device sampling and recorded decoding remain next.
 
 ## History
 

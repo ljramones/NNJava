@@ -20,9 +20,14 @@ final class MappedTensorFile implements TensorFile {
 
     MappedTensorFile(Path path) throws IOException {
         try (var channel = FileChannel.open(path, StandardOpenOption.READ)) {
-            if (channel.size() < 8) { throw new IOException("Truncated tensor file: " + path); }
+            if (channel.size() < 8) {
+                throw new IOException("Truncated tensor file: " + path);
+            }
             bytes = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size(), arena);
-        } catch (IOException | RuntimeException | Error failure) { arena.close(); throw failure; }
+        } catch (IOException | RuntimeException | Error failure) {
+            arena.close();
+            throw failure;
+        }
     }
 
     void finish(Map<String, Object> metadata, Map<String, TensorDescriptor> tensors, long base, boolean contiguous) throws IOException {
@@ -33,21 +38,51 @@ final class MappedTensorFile implements TensorFile {
             if (tensor.offset() < end || tensor.offset() > bytes.byteSize() || tensor.byteSize() > bytes.byteSize() - tensor.offset()) {
                 throw new IOException("Overlapping or out-of-range tensor: " + tensor.name());
             }
-            if (contiguous && tensor.offset() != end) { throw new IOException("Unused safetensors data bytes"); }
+            if (contiguous && tensor.offset() != end) {
+                throw new IOException("Unused safetensors data bytes");
+            }
             end = tensor.offset() + tensor.byteSize();
         }
-        if (contiguous && end != bytes.byteSize()) { throw new IOException("Trailing safetensors data bytes"); }
+        if (contiguous && end != bytes.byteSize()) {
+            throw new IOException("Trailing safetensors data bytes");
+        }
         this.metadata = Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
         this.tensors = Collections.unmodifiableMap(new LinkedHashMap<>(tensors));
     }
 
-    private void requireOpen() { if (closed) { throw new IllegalStateException("Tensor file is closed"); } }
-    @Override public Map<String, Object> metadata() { requireOpen(); return metadata; }
-    @Override public Map<String, TensorDescriptor> tensors() { requireOpen(); return tensors; }
-    @Override public MemorySegment data(String name) {
-        requireOpen(); var descriptor = tensors.get(name);
-        if (descriptor == null) { throw new IllegalArgumentException("Unknown tensor: " + name); }
+    private void requireOpen() {
+        if (closed) {
+            throw new IllegalStateException("Tensor file is closed");
+        }
+    }
+
+    @Override
+    public Map<String, Object> metadata() {
+        requireOpen();
+        return metadata;
+    }
+
+    @Override
+    public Map<String, TensorDescriptor> tensors() {
+        requireOpen();
+        return tensors;
+    }
+
+    @Override
+    public MemorySegment data(String name) {
+        requireOpen();
+        var descriptor = tensors.get(name);
+        if (descriptor == null) {
+            throw new IllegalArgumentException("Unknown tensor: " + name);
+        }
         return bytes.asSlice(descriptor.offset(), descriptor.byteSize());
     }
-    @Override public void close() { if (!closed) { closed = true; arena.close(); } }
+
+    @Override
+    public void close() {
+        if (!closed) {
+            closed = true;
+            arena.close();
+        }
+    }
 }

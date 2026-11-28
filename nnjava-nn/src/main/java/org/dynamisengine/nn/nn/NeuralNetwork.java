@@ -16,13 +16,13 @@ public final class NeuralNetwork extends AbstractModule implements UnaryModule {
     private final Definition definition;
     private final List<UnaryModule> layers = new ArrayList<>();
 
-    private NeuralNetwork(ExecutionContext context, Definition definition) {
+    private NeuralNetwork(ExecutionContext context, Definition definition, ParameterInitialization initialization) {
         super(context);
         this.definition = definition;
         Shape shape = definition.inputShape;
         try {
             for (NamedLayer layer : definition.layers) {
-                UnaryModule module = layer.layer.build(context, shape, ModelBuild.seed(definition.seed, layer.name));
+                UnaryModule module = layer.layer.build(context, shape, ModelBuild.seed(definition.seed, layer.name), initialization);
                 try { register(layer.name, module); }
                 catch (RuntimeException | Error error) { module.close(); throw error; }
                 layers.add(module);
@@ -87,15 +87,22 @@ public final class NeuralNetwork extends AbstractModule implements UnaryModule {
         }
 
         @Override public void validate(ExecutionContext context) {
+            validate(context, ParameterInitialization.DEFAULT);
+        }
+        @Override public void validate(ExecutionContext context, ParameterInitialization initialization) {
             ModelBuild.context(context);
+            java.util.Objects.requireNonNull(initialization);
             Shape shape = inputShape;
             for (NamedLayer layer : layers) {
-                layer.layer.validate(context, shape, name + "." + layer.name);
+                layer.layer.validate(context, shape, name + "." + layer.name, initialization);
                 shape = layer.layer.outputShape(shape);
             }
         }
 
-        @Override public NeuralNetwork build(ExecutionContext context) { validate(context); return new NeuralNetwork(context, this); }
+        @Override public NeuralNetwork build(ExecutionContext context) { return build(context, ParameterInitialization.DEFAULT); }
+        @Override public NeuralNetwork build(ExecutionContext context, ParameterInitialization initialization) {
+            validate(context, initialization); return new NeuralNetwork(context, this, initialization);
+        }
         @Override public ComponentSpec specification() {
             return new ComponentSpec("nnjava.sequential", 1, name,
                     Map.of("inputShape", Layers.encodeShape(inputShape), "seed", Long.toString(seed)),
@@ -151,6 +158,7 @@ public final class NeuralNetwork extends AbstractModule implements UnaryModule {
             return new Definition(name, inputShape, seed, layers);
         }
         public NeuralNetwork build(ExecutionContext context) { return define().build(context); }
+        public NeuralNetwork build(ExecutionContext context, ParameterInitialization initialization) { return define().build(context, initialization); }
         private String nextName(String prefix) {
             var used = layers.stream().map(NamedLayer::name).collect(java.util.stream.Collectors.toSet());
             int ordinal = 0;

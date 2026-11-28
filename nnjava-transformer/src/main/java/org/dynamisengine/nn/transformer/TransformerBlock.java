@@ -19,17 +19,21 @@ public final class TransformerBlock extends AbstractModule implements UnaryModul
     private final Dropout attentionDropout, feedForwardDropout;
 
     public TransformerBlock(ExecutionContext context, Config config, long seed) {
+        this(context, config, seed, ParameterInitialization.DEFAULT);
+    }
+
+    public TransformerBlock(ExecutionContext context, Config config, long seed, ParameterInitialization initialization) {
         super(context);
         this.config = java.util.Objects.requireNonNull(config);
-        config.validate(context, "block");
+        config.validate(context, "block", initialization);
         try {
             int width = config.attention.features();
             attentionNorm = register("attentionNorm", normalization(context, width, config));
-            attention = register("attention", new MultiHeadAttention(context, config.attention, ModelBuild.seed(seed, "attention")));
+            attention = register("attention", new MultiHeadAttention(context, config.attention, ModelBuild.seed(seed, "attention"), initialization));
             feedForwardNorm = register("feedForwardNorm", normalization(context, width, config));
             feedForward = register("feedForward", config.feedForward == FeedForwardKind.SWIGLU
-                    ? new GatedFeedForward(context, width, config.hiddenWidth, ModelBuild.seed(seed, "feedForward"))
-                    : new PlainFeedForward(context, width, config.hiddenWidth, config.feedForward, ModelBuild.seed(seed, "feedForward")));
+                    ? new GatedFeedForward(context, width, config.hiddenWidth, ModelBuild.seed(seed, "feedForward"), initialization)
+                    : new PlainFeedForward(context, width, config.hiddenWidth, config.feedForward, ModelBuild.seed(seed, "feedForward"), initialization));
             attentionDropout = register("attentionDropout", new Dropout(context, config.residualDropout, ModelBuild.seed(seed, "attentionDropout")));
             feedForwardDropout = register("feedForwardDropout", new Dropout(context, config.residualDropout, ModelBuild.seed(seed, "feedForwardDropout")));
         } catch (RuntimeException | Error error) { close(); throw error; }
@@ -70,15 +74,27 @@ public final class TransformerBlock extends AbstractModule implements UnaryModul
         }
 
         public void validate(ExecutionContext context, String path) {
+            validate(context, path, ParameterInitialization.DEFAULT);
+        }
+
+        public void validate(ExecutionContext context, String path, ParameterInitialization initialization) {
             ModelBuild.context(context);
+            java.util.Objects.requireNonNull(initialization);
             int width = attention.features();
             int kvWidth = Math.multiplyExact(attention.kvHeads(), width / attention.heads());
-            ModelBuild.parameter(context, path + ".attention.query.weight", Shape.of(width, width), true);
-            ModelBuild.parameter(context, path + ".attention.key.weight", Shape.of(kvWidth, width), true);
-            ModelBuild.parameter(context, path + ".attention.value.weight", Shape.of(kvWidth, width), true);
-            ModelBuild.parameter(context, path + ".attention.output.weight", Shape.of(width, width), true);
-            ModelBuild.parameter(context, path + ".feedForward.up.weight", Shape.of(hiddenWidth, width), true);
-            ModelBuild.parameter(context, path + ".feedForward.down.weight", Shape.of(width, hiddenWidth), true);
+            initialization.validate(context, path + ".attention.query.weight", Shape.of(width, width));
+            initialization.validate(context, path + ".attention.key.weight", Shape.of(kvWidth, width));
+            initialization.validate(context, path + ".attention.value.weight", Shape.of(kvWidth, width));
+            initialization.validate(context, path + ".attention.output.weight", Shape.of(width, width));
+            initialization.validate(context, path + ".feedForward.up.weight", Shape.of(hiddenWidth, width));
+            initialization.validate(context, path + ".feedForward.down.weight", Shape.of(width, hiddenWidth));
+            if (feedForward == FeedForwardKind.SWIGLU) { initialization.validate(context, path + ".feedForward.gate.weight", Shape.of(hiddenWidth, width)); }
+            if (attention.bias()) {
+                for (String projection : List.of("query", "key", "value", "output")) {
+                    ModelBuild.parameter(context, path + ".attention." + projection + ".bias",
+                            Shape.of(projection.equals("key") || projection.equals("value") ? kvWidth : width), false);
+                }
+            }
             ModelBuild.require(context, path, DType.FP32, Operation.COPY, Operation.FILL, Operation.MATMUL, Operation.ADD,
                     Operation.SCALE, Operation.MULTIPLY, Operation.SUM_TO, Operation.SOFTMAX, Operation.SOFTMAX_BACKWARD, Operation.WHERE);
             ModelBuild.require(context, path + ".mask", DType.BOOL, Operation.AND);
@@ -122,12 +138,12 @@ public final class TransformerBlock extends AbstractModule implements UnaryModul
     private static final class PlainFeedForward extends AbstractModule implements UnaryModule {
         private final Linear up, down;
         private final Activation activation;
-        PlainFeedForward(ExecutionContext context, int width, int hidden, FeedForwardKind kind, long seed) {
+        PlainFeedForward(ExecutionContext context, int width, int hidden, FeedForwardKind kind, long seed, ParameterInitialization initialization) {
             super(context);
             try {
-                up = register("up", new Linear(context, width, hidden, seed, false));
+                up = register("up", new Linear(context, width, hidden, seed, false, initialization));
                 activation = register("activation", new Activation(context, Activation.Kind.valueOf(kind.name())));
-                down = register("down", new Linear(context, hidden, width, seed + 1, false));
+                down = register("down", new Linear(context, hidden, width, seed + 1, false, initialization));
             } catch (RuntimeException | Error error) { close(); throw error; }
         }
         @Override public Tensor forward(Tensor input) {

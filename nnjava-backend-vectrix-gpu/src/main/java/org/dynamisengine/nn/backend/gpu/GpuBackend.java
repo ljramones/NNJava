@@ -322,8 +322,8 @@ public final class GpuBackend implements Backend {
     private void matrix(GpuCommandEncoder encoder, KernelCall call) {
         try (var scratch = new GpuScratch(this)) {
             var a = call.inputs().getFirst(); var b = call.inputs().get(1);
-            if (!matrixLayout(a.layout())) { a = scratch.packed(encoder, a, false); }
-            if (!matrixLayout(b.layout())) { b = scratch.packed(encoder, b, false); }
+            if (!matrixLayout(a.layout())) { a = GpuScratch.flat(scratch.packed(encoder, a, false), a.layout().shape()); }
+            if (!matrixLayout(b.layout())) { b = GpuScratch.flat(scratch.packed(encoder, b, false), b.layout().shape()); }
             matrixProduct2D(encoder, new KernelCall(Operation.MATMUL, List.of(a, b), call.output(), 0));
         }
     }

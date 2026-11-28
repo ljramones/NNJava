@@ -21,17 +21,17 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
     private final UnaryModule finalNorm;
     private final Linear output;
 
-    private CausalLanguageModel(ExecutionContext context, Definition definition) {
+    private CausalLanguageModel(ExecutionContext context, Definition definition, ParameterInitialization initialization) {
         super(context);
         this.definition = definition;
         try {
             embedding = register("embedding", new Embedding(context, definition.vocabularySize, definition.modelWidth,
-                    ModelBuild.seed(definition.seed, "embedding")));
+                    ModelBuild.seed(definition.seed, "embedding"), initialization));
             embeddingDropout = register("embeddingDropout", new Dropout(context, definition.embeddingDropout,
                     ModelBuild.seed(definition.seed, "embeddingDropout")));
             for (int i = 0; i < definition.blockCount; i++) {
                 String name = "block" + i;
-                blocks.add(register(name, new TransformerBlock(context, definition.block, ModelBuild.seed(definition.seed, name))));
+                blocks.add(register(name, new TransformerBlock(context, definition.block, ModelBuild.seed(definition.seed, name), initialization)));
             }
             finalNorm = !definition.finalNormalization ? null : register("finalNorm",
                     definition.block.normalization() == NormalizationKind.RMS
@@ -39,7 +39,7 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
                             : new LayerNorm(context, definition.modelWidth, definition.block.epsilon()));
             output = register("output", definition.tieInputOutputEmbeddings
                     ? new Linear(context, embedding.weight(), false)
-                    : new Linear(context, definition.modelWidth, definition.vocabularySize, ModelBuild.seed(definition.seed, "output"), false));
+                    : new Linear(context, definition.modelWidth, definition.vocabularySize, ModelBuild.seed(definition.seed, "output"), false, initialization));
         } catch (RuntimeException | Error error) { close(); throw error; }
     }
 
@@ -104,15 +104,21 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
         }
 
         @Override public void validate(ExecutionContext context) {
+            validate(context, ParameterInitialization.DEFAULT);
+        }
+        @Override public void validate(ExecutionContext context, ParameterInitialization initialization) {
             ModelBuild.context(context);
-            ModelBuild.parameter(context, name + ".embedding.weight", Shape.of(vocabularySize, modelWidth), true);
+            java.util.Objects.requireNonNull(initialization).validate(context, name + ".embedding.weight", Shape.of(vocabularySize, modelWidth));
             ModelBuild.require(context, name + ".embedding", DType.FP32, Operation.GATHER, Operation.SCATTER_ADD, Operation.COPY, Operation.FILL);
-            for (int i = 0; i < blockCount; i++) { block.validate(context, name + ".block" + i); }
+            for (int i = 0; i < blockCount; i++) { block.validate(context, name + ".block" + i, initialization); }
             new Layers.DropoutSpec(embeddingDropout).validate(context, Shape.of(modelWidth), name + ".embeddingDropout");
             if (finalNormalization) { new Layers.Normalization(block.normalization(), block.epsilon()).validate(context, Shape.of(modelWidth), name + ".finalNorm"); }
-            if (!tieInputOutputEmbeddings) { ModelBuild.parameter(context, name + ".output.weight", Shape.of(vocabularySize, modelWidth), true); }
+            if (!tieInputOutputEmbeddings) { initialization.validate(context, name + ".output.weight", Shape.of(vocabularySize, modelWidth)); }
         }
-        @Override public CausalLanguageModel build(ExecutionContext context) { validate(context); return new CausalLanguageModel(context, this); }
+        @Override public CausalLanguageModel build(ExecutionContext context) { return build(context, ParameterInitialization.DEFAULT); }
+        @Override public CausalLanguageModel build(ExecutionContext context, ParameterInitialization initialization) {
+            validate(context, initialization); return new CausalLanguageModel(context, this, initialization);
+        }
         @Override public ComponentSpec specification() {
             return new ComponentSpec("nnjava.causalLanguageModel", 1, name, Map.of("vocabularySize", Integer.toString(vocabularySize),
                     "modelWidth", Integer.toString(modelWidth), "blockCount", Integer.toString(blockCount), "contextLength", Integer.toString(contextLength),
@@ -169,6 +175,7 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
                     tieEmbeddings, embeddingDropout, seed);
         }
         public CausalLanguageModel build(ExecutionContext context) { return define().build(context); }
+        public CausalLanguageModel build(ExecutionContext context, ParameterInitialization initialization) { return define().build(context, initialization); }
     }
 
     public static final class AttentionBuilder {

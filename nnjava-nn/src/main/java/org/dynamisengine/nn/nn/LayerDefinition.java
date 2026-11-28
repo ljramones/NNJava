@@ -10,4 +10,16 @@ public interface LayerDefinition {
     void validate(ExecutionContext context, Shape inputShape, String path);
     UnaryModule build(ExecutionContext context, Shape inputShape, long seed);
     ComponentSpec specification(String name);
+    default void validate(ExecutionContext context, Shape inputShape, String path, ParameterInitialization initialization) {
+        if (java.util.Objects.requireNonNull(initialization) != ParameterInitialization.DEFAULT) {
+            throw new UnsupportedOperationException(path + ": alternative parameter initialization is unsupported");
+        }
+        validate(context, inputShape, path);
+    }
+    default UnaryModule build(ExecutionContext context, Shape inputShape, long seed, ParameterInitialization initialization) {
+        if (java.util.Objects.requireNonNull(initialization) != ParameterInitialization.DEFAULT) {
+            throw new UnsupportedOperationException("Layer alternative parameter initialization is unsupported");
+        }
+        return build(context, inputShape, seed);
+    }
 }

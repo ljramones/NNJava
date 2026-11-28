@@ -3,8 +3,8 @@
 The optional GPU adapter supports these operations on **Vectrix 4.1.0** and
 **DynamisGPU 1.14.1**, in both exact and throughput modes. Native Metal checks cover
 outputs, gradients, device layouts and cleanup. This extends the
-[neural-operation batch](gpu-neural-operations.md); full model construction/loading
-and complete GPU inference remain separate milestones.
+[neural-operation batch](gpu-neural-operations.md); subsequent full-model results
+are documented in [GPU model inference](gpu-model-inference.md).
 
 ## Implemented operations
 
@@ -83,12 +83,13 @@ layer/transformer/training modules on its module path. See the
 
 ## Remaining GPU milestones
 
-Next implement a construction/loading path for supplied model weights and verify
-complete transformer inference against the independent pretrained CPU reference.
+The subsequent [GPU model-inference batch](gpu-model-inference.md) implements
+supplied-weight construction/loading and complete transformer inference against
+the independent pretrained reference in both Metal modes.
 GPU normal initialization, cross-entropy, stateful optimizers, convolution/pooling
 and mixed-precision training remain unsupported. Paged cache integration, GPU
 sampling, recorded decode and quantized placement follow complete inference.
 
 Existing host utilities such as `Masks.padding` still read lengths for validation
 and construct masks on the host; this batch implements the underlying device Ops.
-Vulkan execution, full GPU Trainer workflows and model throughput remain unverified.
+Vulkan execution, full GPU Trainer workflows and controlled model throughput remain unverified.

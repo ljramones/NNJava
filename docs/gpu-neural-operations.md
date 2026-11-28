@@ -99,8 +99,8 @@ profiles explicitly require their selected device. Vulkan remains unverified her
 Public mask/logic/index operations, embedding gather/scatter, RoPE,
 general max/argmax and concat/slice gradients are now implemented in the subsequent
 [GPU tensor-operation batch](gpu-tensor-operations.md), including masked GQA gradients.
-A construction/loading policy that avoids the currently unsupported GPU normal
-initializer and full inference orchestration remain. Stateful optimizers, cross-entropy, GPU
+The later [GPU model-inference batch](gpu-model-inference.md) adds supplied-weight
+construction/loading and complete device-cache inference. Stateful optimizers, cross-entropy, GPU
 convolution/pooling, mixed-precision computation and broader training support also
 remain separate work.
 

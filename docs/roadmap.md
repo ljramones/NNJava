@@ -26,8 +26,9 @@ configurable causal decoders, CPU prefill/decode sessions, supervised Trainer/da
 APIs, grouped/depthwise CNN layers with pooling, and RNN/LSTM/GRU cells, masked
 sequences, and explicit state. The optional GPU
 adapter supplies storage, FP32 arithmetic, batched GEMM, neural functions,
-sum/norm reductions, masks/indexing, RoPE and supported gradients; complete
-GPU model execution remains pending.
+sum/norm reductions, masks/indexing, RoPE and supported gradients. Explicit supplied-weight
+construction, complete FP32 transformer inference and device-cache generation pass
+on Metal, including real SmolLM2-135M reference acceptance in both modes.
 
 The [model builder guide](model-builders.md) documents construction, definitions,
 training-loop integration, cache lifecycle, and runnable fluent examples.
@@ -159,7 +160,7 @@ its planned builder or orchestration API already exists.
 | IO-05 | Safetensors and supported sharded weight indexes; bounded loading | Implemented checked mapped files/sibling shard indexes and per-tensor staging | P1 R5 L2 |
 | LM-01                         | Configurable attention, gated blocks, masks, norms, residuals, tied weights                           | CPU decoder blocks and configuration builders implemented; further variants planned                                                | P0 R5 L1              |
 | LM-02 | Decoder and causal-language-model definitions/builders | Implemented CPU causal-model definition and builder with distinct block weights | P0 R5 L1 |
-| LM-03 | Prefill/decode sessions and cache lifecycle | CPU prefill/decode sessions and stale-cache checks implemented; GPU session path pending | P0 R5 L2 |
+| LM-03 | Prefill/decode sessions and cache lifecycle | CPU and FP32 Metal device-cache sessions verified; paged cache/sampling/replay integration pending | P0 R5 L2 |
 | LM-04                         | Encoder/encoder-decoder, cross-attention, pooling/readout composition                                 | Planned architecture expansion                                                                                    | P2 R5 L6              |
 | LM-05                         | LoRA selection/configuration, adapter save/load, merge/unmerge                                        | Planned; frozen-base and gradient checks required                                                                 | P1 R5 L4              |
 | LM-06                         | Position schemes, rotary scaling, sliding windows, context validation                                 | RoPE/base and causal/explicit masks exposed; scaling/window policies planned                                                 | P1 R5 L1/L5           |
@@ -183,12 +184,12 @@ its planned builder or orchestration API already exists.
 | EX-08                         | Residual CNN example                                                                                  | Planned follow-on                                                                                                 | P1 after CNN support  |
 | EX-09 | Small causal transformer example | Implemented direct and fluent decoder examples with training, restore and cache checks | P0 R5 |
 | EX-10                         | Encoder/decoder sequence example                                                                      | Planned later architecture expansion                                                                              | P2 R5 L6              |
-| EX-11 | Real pretrained-model inference consumer | SmolLM2-135M scalar/SIMD CPU acceptance implemented: independent tokens/all-vocabulary logits, readout, generation, growing cache and request timings; GPU pending | P0 R5 L2 |
+| EX-11 | Real pretrained-model inference consumer | SmolLM2-135M scalar/SIMD CPU and exact/throughput Metal acceptance: reference tokens/logits, readout, cached generation and request timings; controlled benchmarks pending | P0 R5 L2 |
 | EX-12 | Small LM pretraining and reproducible resume | Small token-ID training/resume implemented; corpus/packing workflow remains planned | P0 R5 L3 |
 | EX-13                         | Supervised and LoRA fine-tuning examples                                                              | Planned; reload adapters and compare output                                                                       | P1 R5 L4              |
 | EXEC-01                       | Vectrix CPU migration (`vectrix-core` and `vectrix-ml`)                                               | Implemented on 4.1.0; scalar/SIMD CPU checks pass                                                                 | P0 before R1/GPU      |
-| EXEC-02 | GPU adapter, exact mode (vectrix-gpu on the DynamisGPU runtime) | Neural primitives plus masks/casts/indexing/max/RoPE and embedding/masked GQA gradients verified on Metal; model construction/loading and full inference gates pending | P1 R6 |
-| EXEC-04 | GPU adapter, throughput mode (`dynamis-gpu-primitives`) | Bounded neural primitives and exact word/index/RoPE selections verified on Metal; model construction/loading, full inference and broader training pending | P1 R6 |
+| EXEC-02 | GPU adapter, exact mode (vectrix-gpu on the DynamisGPU runtime) | Supplied-weight construction, full FP32 transformer/device-cache inference and SmolLM2 acceptance verified on Metal; broader GPU training pending | P1 R6 |
+| EXEC-04 | GPU adapter, throughput mode (`dynamis-gpu-primitives`) | Bounded/exact-tier selections and full SmolLM2 inference/cache/generation acceptance verified on Metal; broader training and serving optimizations pending | P1 R6 |
 | EXEC-05                       | GPU inference path: `PagedKvCache`, GPU `Sampler`, recorded decode steps (`GpuRecording`)             | Upstream pieces exist                                                                                             | P1 R5/R6              |
 | EXEC-03                       | Mixed precision and quantized execution policies                                                      | FP16/BF16 GEMM and quantized GEMM exist upstream; training support is request G-T9                                | P2 after R6           |
 | PERF-01                       | Worker scheduling, memory planning, fusion, recomputation                                             | Initial benchmarks exist; optimizations planned                                                                   | P2 R7                 |
@@ -215,8 +216,10 @@ persistence, CPU cache sessions, supervised Trainer/data APIs, CPU CNN support,
 RNN/LSTM/GRU cells/sequences/examples, token generation, and optional byte-level
 BPE, neutral GGUF/safetensors readers and explicit pretrained mappings are implemented.
 The optional standard Llama adapter and first real checkpoint CPU validation are
-also implemented. Next add GPU model construction/loading and complete inference,
-branched/residual builders, additional family adapters, and
+also implemented, including supplied-weight Metal model construction/loading and
+complete reference-checked FP32 inference in both modes. Next integrate paged GPU
+caches, device sampling and recorded decoding; add branched/residual builders,
+additional family adapters, and
 sequence-data packing/streaming. Preserve separate correctness and performance
 milestones for real-model inference and LM training. Keep nonlinear classifiers
 and caller-configured causal models as consumer API tests.

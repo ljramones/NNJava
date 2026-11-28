@@ -19,8 +19,11 @@ public final class Linear extends AbstractModule implements UnaryModule {
             Shape.of(outputFeatures, inputFeatures);
         }
         @Override public void validate(ExecutionContext context) {
+            validate(context, ParameterInitialization.DEFAULT);
+        }
+        @Override public void validate(ExecutionContext context, ParameterInitialization initialization) {
             ModelBuild.context(context);
-            ModelBuild.parameter(context, name + ".weight", Shape.of(outputFeatures, inputFeatures), true);
+            java.util.Objects.requireNonNull(initialization).validate(context, name + ".weight", Shape.of(outputFeatures, inputFeatures));
             if (bias) { ModelBuild.parameter(context, name + ".bias", Shape.of(outputFeatures), false); }
             ModelBuild.require(context, name, org.dynamisengine.nn.tensor.DType.FP32,
                     org.dynamisengine.nn.backend.Operation.COPY, org.dynamisengine.nn.backend.Operation.FILL,
@@ -28,6 +31,9 @@ public final class Linear extends AbstractModule implements UnaryModule {
             if (bias) { ModelBuild.require(context, name, org.dynamisengine.nn.tensor.DType.FP32, org.dynamisengine.nn.backend.Operation.ADD); }
         }
         @Override public Linear build(ExecutionContext context) { validate(context); return new Linear(context, inputFeatures, outputFeatures, seed, bias); }
+        @Override public Linear build(ExecutionContext context, ParameterInitialization initialization) {
+            validate(context, initialization); return new Linear(context, inputFeatures, outputFeatures, seed, bias, initialization);
+        }
         @Override public org.dynamisengine.nn.model.ComponentSpec specification() {
             return new org.dynamisengine.nn.model.ComponentSpec("nnjava.linear", 1, name,
                     java.util.Map.of("inputs", Long.toString(inputFeatures), "outputs", Long.toString(outputFeatures),
@@ -52,6 +58,7 @@ public final class Linear extends AbstractModule implements UnaryModule {
         public Builder seed(long value) { seed = value; return this; }
         public Definition define() { return new Definition(name, inputs, outputs, bias, seed); }
         public Linear build(ExecutionContext context) { return define().build(context); }
+        public Linear build(ExecutionContext context, ParameterInitialization initialization) { return define().build(context, initialization); }
     }
     private final long inputFeatures;
     private final long outputFeatures;
@@ -63,13 +70,17 @@ public final class Linear extends AbstractModule implements UnaryModule {
     }
 
     public Linear(ExecutionContext context, long inputs, long outputs, long seed, boolean withBias) {
+        this(context, inputs, outputs, seed, withBias, ParameterInitialization.DEFAULT);
+    }
+
+    public Linear(ExecutionContext context, long inputs, long outputs, long seed, boolean withBias, ParameterInitialization initialization) {
         super(context);
         if (inputs <= 0 || outputs <= 0) {
             throw new IllegalArgumentException("Positive feature counts required");
         }
         inputFeatures = inputs;
         outputFeatures = outputs;
-        try (Tensor initial = context.normal(Shape.of(outputs, inputs), seed, (float) Math.sqrt(1.0 / inputs), true)) {
+        try (Tensor initial = java.util.Objects.requireNonNull(initialization).normal(context, Shape.of(outputs, inputs), seed, (float) Math.sqrt(1.0 / inputs))) {
             weight = register("weight", initial);
         }
         try {

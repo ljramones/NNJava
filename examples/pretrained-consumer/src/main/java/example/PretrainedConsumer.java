@@ -17,6 +17,8 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.ServiceLoader;
+import org.dynamisengine.nn.backend.BackendProvider;
 import org.dynamisengine.nn.formats.JsonDocuments;
 import org.dynamisengine.nn.generation.GenerationSession;
 import org.dynamisengine.nn.ops.Ops;
@@ -28,7 +30,7 @@ import org.dynamisengine.nn.tensor.Tensor;
 import org.dynamisengine.nn.tokenizers.EncodeOptions;
 import org.dynamisengine.nn.tokenizers.TokenizerAssets;
 
-/** Real pinned CPU checkpoint acceptance using public artifacts, without training or dataset modules. */
+/** Real pinned checkpoint acceptance using a selected provider, without training or dataset modules. */
 public final class PretrainedConsumer {
     private static final ValueLayout.OfFloat FLOAT = ValueLayout.JAVA_FLOAT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
     private record CaseResult(String prompt, int promptTokens, List<Integer> generated, String text,
@@ -56,8 +58,9 @@ public final class PretrainedConsumer {
             if (config.definition(16).blockCount() != 2) { throw new AssertionError("Pretrained configuration consumer failed"); }
             System.out.println("Pretrained JPMS consumer passed without training/data modules; real assets are opt-in"); return;
         }
-        if (args.length < 1 || args.length > 2) { throw new IllegalArgumentException("Usage: PretrainedConsumer MODEL_DIRECTORY [REPORT.json]"); }
-        Path directory = Path.of(args[0]); Path reportPath = args.length == 2 ? Path.of(args[1]) : directory.resolve("nnjava-validation.json");
+        if (args.length < 1 || args.length > 3) { throw new IllegalArgumentException("Usage: PretrainedConsumer MODEL_DIRECTORY [REPORT.json [PROVIDER_ID]]"); }
+        Path directory = Path.of(args[0]); Path reportPath = args.length >= 2 ? Path.of(args[1]) : directory.resolve("nnjava-validation.json");
+        String provider = args.length == 3 ? args[2] : "vectrix";
         var reference = JsonDocuments.read(directory.resolve("reference.json"));
         Map<String, Object> manifest;
         try (var resource = PretrainedConsumer.class.getResourceAsStream("/smollm2-135m.json")) {
@@ -84,10 +87,11 @@ public final class PretrainedConsumer {
         var checkpoint = LlamaCheckpoint.open(directory); var config = checkpoint.configuration();
         if (config.vocabularySize() != vocabulary) { throw new AssertionError("Reference vocabulary differs"); }
         long loadStarted = System.nanoTime(); long loadNanos, parameterBytes = 0, heapAfterLoad;
-        int tokenVectors, parameters;
-        try (var context = ExecutionContext.cpu(); var model = checkpoint.load(context, 64);
+        int tokenVectors, parameters; String device;
+        try (var context = open(provider); var model = checkpoint.load(context, 64);
              var tokenizer = TokenizerAssets.huggingFace(directory.resolve("tokenizer.json"), TokenizerAssets.Options.gpt2())) {
             context.synchronize(); loadNanos = System.nanoTime() - loadStarted;
+            device = context.device().toString();
             if (tokenizer.vocabulary().size() != vocabulary || tokenizer.vocabulary().bosTokenId().orElseThrow() != config.bosTokenId().orElseThrow()
                     || !config.eosTokenIds().contains(tokenizer.vocabulary().eosTokenId().orElseThrow())) { throw new AssertionError("Tokenizer/model control metadata differs"); }
             var allowedSpecial = EncodeOptions.plain().allowSpecial(tokenizer.vocabulary().specialTokens().keySet().toArray(String[]::new));
@@ -146,16 +150,19 @@ public final class PretrainedConsumer {
                 if (context.liveAllocations() != baseline) { throw new AssertionError("Inference leaked allocations"); }
             }
         }
-        writeReport(reportPath, manifest, referenceErrors, cacheErrors, tokenVectors, parameters, parameterBytes, heapAfterLoad, loadNanos, measured);
+        writeReport(reportPath, manifest, referenceErrors, cacheErrors, tokenVectors, parameters, parameterBytes, heapAfterLoad, loadNanos, measured, provider, device);
         System.out.printf("Validated %,d logits; max absolute error %.8g; report: %s%n", referenceErrors.count, referenceErrors.maximum, reportPath);
     }
 
     private static void writeReport(Path path, Map<String, Object> manifest, Errors reference, Errors cache,
-                                    int vectors, int parameters, long parameterBytes, long heap, long loadNanos, List<CaseResult> cases) throws IOException {
+                                    int vectors, int parameters, long parameterBytes, long heap, long loadNanos, List<CaseResult> cases,
+                                    String provider, String device) throws IOException {
         try (var generator = new JsonFactory().createGenerator(Files.newOutputStream(path))) {
             generator.useDefaultPrettyPrinter(); generator.writeStartObject();
             generator.writeStringField("model", (String) manifest.get("model")); generator.writeStringField("revision", (String) manifest.get("revision"));
-            generator.writeStringField("backend", "Vectrix 4.1.0 CPU"); generator.writeStringField("java", System.getProperty("java.version"));
+            generator.writeStringField("backend", device); generator.writeStringField("provider", provider);
+            generator.writeStringField("vectrix", "4.1.0"); generator.writeStringField("java", System.getProperty("java.version"));
+            if (!provider.equals("vectrix")) { generator.writeStringField("dynamisgpu", "1.14.1"); }
             generator.writeBooleanField("simd", ModuleLayer.boot().findModule("jdk.incubator.vector").isPresent());
             generator.writeStringField("os", System.getProperty("os.name") + " " + System.getProperty("os.arch"));
             generator.writeNumberField("tokenization_vectors", vectors); generator.writeNumberField("unique_parameters", parameters);
@@ -163,7 +170,7 @@ public final class PretrainedConsumer {
             generator.writeNumberField("context_capacity", 64); generator.writeNumberField("load_ms", loadNanos / 1e6);
             generator.writeNumberField("compared_logits", reference.count); generator.writeNumberField("max_absolute_logit_error", reference.maximum);
             generator.writeNumberField("rms_logit_error", reference.rms()); generator.writeNumberField("cache_check_max_absolute_error", cache.maximum);
-            generator.writeStringField("timing_policy", "One CPU request per prompt after correctness passes; includes accepted final-token decode; not a throughput benchmark");
+            generator.writeStringField("timing_policy", "One request per prompt after correctness passes; includes accepted final-token decode and host sampling/logit readback; not a throughput benchmark");
             generator.writeArrayFieldStart("cases");
             for (var result : cases) {
                 generator.writeStartObject(); generator.writeStringField("prompt", result.prompt); generator.writeNumberField("prompt_tokens", result.promptTokens);
@@ -174,6 +181,14 @@ public final class PretrainedConsumer {
             }
             generator.writeEndArray(); generator.writeEndObject();
         }
+    }
+    private static ExecutionContext open(String id) {
+        if (id.equals("vectrix")) { return ExecutionContext.cpu(); }
+        var provider = ServiceLoader.load(BackendProvider.class).stream().map(ServiceLoader.Provider::get)
+                .filter(value -> value.id().equals(id)).findFirst().orElseThrow(() -> new IllegalArgumentException("Provider unavailable: " + id));
+        var devices = provider.devices();
+        if (devices.isEmpty()) { throw new IllegalStateException("Requested provider has no device: " + id); }
+        return ExecutionContext.open(id, devices.getFirst().id());
     }
     private static float[] row(MemorySegment data, int row, int rows, int vocabulary) throws IOException {
         if (row < 0 || row >= rows) { throw new IOException("Reference row outside data"); }

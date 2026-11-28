@@ -2,9 +2,9 @@
 
 These APIs are implemented on the Vectrix 4.1.0 CPU backend. They build ordinary
 modules that work with existing explicit training loops, optimizers, state archives,
-and checkpoint resume. The numerical stack remains pinned to DynamisGPU 1.14.1;
-its NNJava adapter still needs additional operations before it can execute these
-complete models on a GPU.
+and checkpoint resume. With Vectrix 4.1.0 and DynamisGPU 1.14.1, explicit supplied-weight
+dense networks and causal decoders also execute on Metal in both GPU modes. See
+[GPU model inference](gpu-model-inference.md); GPU Trainer workflows remain separate.
 
 ## Define and build a network
 
@@ -74,7 +74,7 @@ training recipes are supplied by the application. `forward(tokens, allowedMask)`
 accepts a boolean mask broadcastable to `[batch, queryHeads, time, time]`; true
 means allowed, and the causal mask is always applied.
 
-Implemented options include MHA/MQA/GQA, attention projection biases, interleaved
+Implemented options include MHA/MQA/GQA, attention projection biases, split-half
 RoPE with a configurable base or disabled positions, RMSNorm/LayerNorm,
 SwiGLU or two-projection GELU/SiLU/ReLU feed-forward blocks, attention/residual/
 embedding dropout, optional final normalization, and tied/separate readouts.
@@ -95,7 +95,7 @@ var restoredDefinition = CausalLanguageModel.Definition.fromSpec(
     ModelDefinitions.read(definitionPath));
 
 StateArchive.saveWeights(weightsPath, model);
-try (var restored = restoredDefinition.build(context)) {
+try (var restored = restoredDefinition.build(context, ParameterInitialization.ZEROS)) {
     StateArchive.read(weightsPath).restoreModel(restored);
 }
 ```
@@ -105,6 +105,15 @@ contain only configuration. Definition files have bounded size/depth/node counts
 a checksum, deterministic attribute ordering, and atomic replacement. Typed
 decoders reject unknown versions or settings. No reflective class loading is used.
 These files are separate from model weights and full training checkpoints.
+
+`ParameterInitialization.ZEROS` initializes normally random weights with backend
+zero fill; biases and normalization scales retain their defaults. This avoids
+requiring a normal initializer before replacing weights. `build(context)` retains
+the seeded default, and the policy is a construction choice rather than a change
+to the serialized architecture. Supported definitions are Linear, causal models
+and dense sequential networks with activation/dropout/normalization/layout layers.
+Other layer/definition types must explicitly implement the policy; custom types
+reject it before construction by default. GPU normal initialization remains unsupported.
 
 Custom sequential layers implement `LayerDefinition`: shape inference, capability
 validation, construction, and a specification. Supply explicit custom type decoders
