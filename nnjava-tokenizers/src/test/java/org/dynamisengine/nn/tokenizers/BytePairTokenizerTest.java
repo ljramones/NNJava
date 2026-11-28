@@ -12,6 +12,19 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BytePairTokenizerTest {
+    @Test void sparseByteAlphabetsRejectMissingBytesWithoutChangingTokenIds() {
+        int[] ids=new int[256]; Arrays.fill(ids,-1); ids['a']=0; ids['b']=1;
+        var tokenizer=BytePairTokenizer.builder().byteTokenIds(ids).merge(0,1,2).build();
+        assertEquals(3,tokenizer.vocabulary().size()); assertArrayEquals(new int[]{2},tokenizer.encode("ab"));
+        assertEquals("ab",tokenizer.decode(new int[]{2})); assertThrows(IllegalArgumentException.class, () -> tokenizer.encode("abc"));
+        ids[0]=-2; assertThrows(IllegalArgumentException.class, () -> BytePairTokenizer.builder().byteTokenIds(ids).build());
+    }
+    @Test void digitAndByteLevelStagesComposeWithoutMergingAcrossNumberBoundaries() {
+        assertEquals(List.of("ab","1","2"," ","Ⅳ","½","٣"),PreTokenizers.individualDigits().split("ab12 Ⅳ½٣"));
+        var tokenizer=BytePairTokenizer.builder().merge('1','2',256)
+                .preTokenizer(PreTokenizers.sequence(PreTokenizers.individualDigits(),PreTokenizers.gpt2())).build();
+        assertArrayEquals(new int[]{'1','2'},tokenizer.encode("12")); assertEquals("ab12 Ⅳ½٣",tokenizer.decode(tokenizer.encode("ab12 Ⅳ½٣")));
+    }
     @Test void completeByteVocabularyRoundTripsUnicodeWhitespaceAndControlText() {
         var tokenizer=BytePairTokenizer.builder().build();
         for (String text:List.of("","hello\n\t world  ","café Ελληνικά 中文 😀","e\u0301","\0\r\n<|eos|>")) {

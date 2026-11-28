@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -42,7 +41,7 @@ public final class TokenizerAssets {
                 rules.add(List.of(pair));
             }
         }
-        return build(vocab, rules, options, Set.of());
+        return build(vocab, rules, options, Set.of(), PreTokenizers.gpt2(), false);
     }
 
     /**
@@ -54,10 +53,7 @@ public final class TokenizerAssets {
         if (document.get("normalizer") != null || document.get("truncation") != null || document.get("padding") != null) {
             throw new IOException("Tokenizer normalization, truncation and padding require an explicit adapter");
         }
-        var pre = typed(document.get("pre_tokenizer"), "ByteLevel", "pre_tokenizer");
-        if (!Boolean.FALSE.equals(pre.get("add_prefix_space")) || !Boolean.TRUE.equals(pre.get("use_regex"))) {
-            throw new IOException("Only ByteLevel add_prefix_space=false/use_regex=true is supported");
-        }
+        var preTokenizer = preTokenizer(document.get("pre_tokenizer"));
         typed(document.get("decoder"), "ByteLevel", "decoder");
         if (document.get("post_processor") != null) { typed(document.get("post_processor"), "ByteLevel", "post_processor"); }
         var model = typed(document.get("model"), "BPE", "model");
@@ -92,7 +88,27 @@ public final class TokenizerAssets {
                 rules.add(List.of(JsonDocuments.string(pair.get(0), "left"), JsonDocuments.string(pair.get(1), "right")));
             }
         }
-        return build(vocab, rules, options, special);
+        return build(vocab, rules, options, special, preTokenizer, true);
+    }
+
+    private static PreTokenizer preTokenizer(Object value) throws IOException {
+        var fields = JsonDocuments.object(value, "pre_tokenizer");
+        if ("Sequence".equals(fields.get("type"))) {
+            if (!fields.keySet().equals(Set.of("type", "pretokenizers"))) { throw new IOException("Unknown tokenizer Sequence option"); }
+            var stages = JsonDocuments.array(fields.get("pretokenizers"), "pretokenizers");
+            if (stages.size() != 2) { throw new IOException("Only Digits then ByteLevel sequence is supported"); }
+            var digits = JsonDocuments.object(stages.getFirst(), "Digits");
+            if (!digits.equals(Map.of("type", "Digits", "individual_digits", true))) { throw new IOException("Only individual Digits then ByteLevel is supported"); }
+            return PreTokenizers.sequence(PreTokenizers.individualDigits(), byteLevel(stages.getLast()));
+        }
+        return byteLevel(value);
+    }
+    private static PreTokenizer byteLevel(Object value) throws IOException {
+        var pre = typed(value, "ByteLevel", "pre_tokenizer");
+        if (!Boolean.FALSE.equals(pre.get("add_prefix_space")) || !Boolean.TRUE.equals(pre.get("use_regex"))) {
+            throw new IOException("Only ByteLevel add_prefix_space=false/use_regex=true is supported");
+        }
+        return PreTokenizers.gpt2();
     }
 
     private static boolean nonempty(Object value) { return value != null && !value.equals(""); }
@@ -117,12 +133,16 @@ public final class TokenizerAssets {
         for (var entry : document.entrySet()) { result.put(entry.getKey(), id(entry.getValue())); } return result;
     }
 
-    private static BytePairTokenizer build(Map<String, Integer> vocab, List<List<String>> rules, Options options, Set<String> addedSpecials) throws IOException {
+    private static BytePairTokenizer build(Map<String, Integer> vocab, List<List<String>> rules, Options options,
+                                           Set<String> addedSpecials, PreTokenizer preTokenizer, boolean allowMissingBytes) throws IOException {
         try {
             var specials = new LinkedHashSet<>(addedSpecials); specials.addAll(options.specialTokens);
-            var builder = BytePairTokenizer.builder().preTokenizer(PreTokenizers.gpt2());
+            var builder = BytePairTokenizer.builder().preTokenizer(preTokenizer);
             var symbols = byteSymbols(); int[] byteIds = new int[256]; var used = new LinkedHashSet<String>();
-            for (int b = 0; b < 256; b++) { byteIds[b] = require(vocab, symbols[b]); used.add(symbols[b]); }
+            for (int b = 0; b < 256; b++) {
+                byteIds[b] = allowMissingBytes ? vocab.getOrDefault(symbols[b], -1) : require(vocab, symbols[b]);
+                if (byteIds[b]>=0) { used.add(symbols[b]); }
+            }
             builder.byteTokenIds(byteIds);
             for (var pair : rules) {
                 String left = pair.getFirst(), right = pair.getLast(), merged = left + right;

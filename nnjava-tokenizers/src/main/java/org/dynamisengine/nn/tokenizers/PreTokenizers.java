@@ -8,6 +8,22 @@ import java.util.regex.Pattern;
 public final class PreTokenizers {
     private PreTokenizers() { }
     public static PreTokenizer wholeText() { return text -> text.isEmpty() ? List.of() : List.of(text); }
+    /** Isolates each Unicode Number code point while preserving every other character. */
+    public static PreTokenizer individualDigits() {
+        return regex(Pattern.compile("\\p{N}|[^\\p{N}]+"));
+    }
+    public static PreTokenizer sequence(PreTokenizer... stages) {
+        var pipeline=List.of(stages.clone());
+        return text -> {
+            List<String> pieces=text.isEmpty() ? List.of() : List.of(text);
+            for (var stage:pipeline) {
+                var next=new ArrayList<String>();
+                for (String piece:pieces) { next.addAll(stage.split(piece)); }
+                pieces=List.copyOf(next);
+            }
+            return pieces;
+        };
+    }
     /** Standard GPT-2-style regex using the running JDK's Unicode character classes. */
     public static PreTokenizer gpt2() {
         return regex(Pattern.compile("'s|'t|'re|'ve|'m|'ll|'d| ?\\p{L}+| ?\\p{N}+| ?[^\\s\\p{L}\\p{N}]+|\\s+(?!\\S)|\\s+",Pattern.UNICODE_CHARACTER_CLASS));

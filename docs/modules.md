@@ -24,6 +24,7 @@ The optional GPU adapter implements the subset in the migration guide.
 | `nnjava-tokenizers`          | Optional text/token interfaces, incremental decoding, byte BPE asset imports, vocabulary/special-token metadata, and providers.                 | formats; no numerical, model or training modules                                                                                        |
 | `nnjava-data`                | Dataset/batch interfaces, deterministic loaders, masks, padding, packing, and data transforms.                                               | core                                                                                                                                   |
 | `nnjava-io`                  | Tensor archives, model definitions/state, explicit pretrained weight mappings, model-only save/load, codecs, and schema migration.           | core, nn, formats; no numerical backend dependency                                                                                     |
+| `nnjava-pretrained`          | Optional explicit family configuration/weight adapters; initial standard HF Llama safetensors path.                                          | io, transformer; no concrete backend, tokenizer, training or data module                                                                |
 | `nnjava-training`            | Losses, optimizers, schedules, metrics, Trainer, token-loss/adapter training helpers, callbacks, and full training checkpoint orchestration. | core, nn, data, io; transformer integration via public model interfaces                                                                |
 | `nnjava-backend-vectrix-gpu` | Optional GPU adapter with an exact mode (vectrix-gpu) and a throughput mode (`dynamis-gpu-primitives`), on the DynamisGPU runtime.           | core; `vectrix-gpu`, `dynamis-gpu-primitives`, `dynamis-gpu-api`. The application adds `dynamis-gpu-metal` and/or `dynamis-gpu-vulkan` |
 | `nnjava`                     | Convenience starter assembling the CPU framework for applications that want a single dependency.                                             | CPU capability modules above                                                                                                           |
@@ -64,6 +65,9 @@ reverse dependency. Its initial host sampler directly uses the Vectrix core/ml
 kernel artifacts with the selected scalar/SIMD classifiers, without depending on
 the concrete CPU adapter. Tokenizers depend on formats/Jackson Core and remain an
 explicit optional artifact; the CPU starter includes generation.
+The optional pretrained module is also selected explicitly. It maps a supported
+family configuration to existing model definitions and checked weight mappings;
+see [real-model validation](pretrained-model-validation.md).
 
 ## Dependency cuts required by current code
 

@@ -1,0 +1,44 @@
+{
+  "model" : "HuggingFaceTB/SmolLM2-135M",
+  "revision" : "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+  "backend" : "Vectrix 4.1.0 CPU",
+  "java" : "25.0.4",
+  "simd" : false,
+  "os" : "Mac OS X aarch64",
+  "tokenization_vectors" : 10,
+  "unique_parameters" : 272,
+  "parameter_bytes" : 538060032,
+  "heap_used_after_load" : 1183260952,
+  "context_capacity" : 64,
+  "load_ms" : 5190.630625,
+  "compared_logits" : 737280,
+  "max_absolute_logit_error" : 1.4162063598632812E-4,
+  "rms_logit_error" : 2.094424145838903E-5,
+  "cache_check_max_absolute_error" : 0.0,
+  "timing_policy" : "One CPU request per prompt after correctness passes; includes accepted final-token decode; not a throughput benchmark",
+  "cases" : [ {
+    "prompt" : "The capital of France is",
+    "prompt_tokens" : 5,
+    "generated_ids" : [ 260, 3575, 282, 260 ],
+    "generated_text" : " the capital of the",
+    "prefill_ms" : 207.434875,
+    "decode_ms" : 198.435082,
+    "total_ms" : 411.908958
+  }, {
+    "prompt" : "Once upon a time",
+    "prompt_tokens" : 4,
+    "generated_ids" : [ 28, 665, 436, 253 ],
+    "generated_text" : ", there was a",
+    "prefill_ms" : 165.116167,
+    "decode_ms" : 183.832208,
+    "total_ms" : 349.489625
+  }, {
+    "prompt" : "Java is a",
+    "prompt_tokens" : 3,
+    "generated_ids" : [ 6256, 1789, 338, 314 ],
+    "generated_text" : " programming language that is",
+    "prefill_ms" : 121.736959,
+    "decode_ms" : 184.823959,
+    "total_ms" : 307.02075
+  } ]
+}

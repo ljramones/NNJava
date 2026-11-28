@@ -12,6 +12,7 @@
         <module>generation-consumer</module>
         <module>tokenizer-consumer</module>
         <module>formats-consumer</module>
+        <module>pretrained-consumer</module>
     </modules>
     <profiles>
         <profile>

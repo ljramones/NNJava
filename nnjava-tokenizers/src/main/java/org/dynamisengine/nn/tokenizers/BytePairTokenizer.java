@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.regex.Pattern;
 
-/** Ranked byte-level BPE over a complete 256-byte alphabet, with explicit special-token policy. */
+/** Ranked byte-level BPE with explicit special-token policy; defaults to a complete byte alphabet. */
 public final class BytePairTokenizer implements Tokenizer {
     private record Rule(int left,int right,int result) { }
     private record Merge(int rank,int left,int right,int leftId,int rightId) implements Comparable<Merge> {
@@ -28,9 +28,11 @@ public final class BytePairTokenizer implements Tokenizer {
     private BytePairTokenizer(Builder builder) {
         byteIds=builder.byteIds.clone(); rules=List.copyOf(builder.rules);
         normalization=Objects.requireNonNull(builder.normalization); preTokenizer=Objects.requireNonNull(builder.preTokenizer);
-        int size=Math.addExact(256,Math.addExact(rules.size(),builder.specials.size()));
+        int alphabetSize=0;
+        for (int id:byteIds) { if (id < -1) { throw new IllegalArgumentException("Byte IDs must be nonnegative or -1 for an absent byte"); } if (id>=0) { alphabetSize++; } }
+        int size=Math.addExact(alphabetSize,Math.addExact(rules.size(),builder.specials.size()));
         byte[][] pieces=new byte[size][]; var normalPieces=new HashMap<String,Integer>(); var ranked=new HashMap<Long,Integer>();
-        for (int b=0;b<256;b++) { define(pieces,byteIds[b],new byte[]{(byte)b},normalPieces); }
+        for (int b=0;b<256;b++) { if (byteIds[b]>=0) { define(pieces,byteIds[b],new byte[]{(byte)b},normalPieces); } }
         for (int rank=0;rank<rules.size();rank++) {
             var rule=rules.get(rank); int left=Objects.checkIndex(rule.left,size),right=Objects.checkIndex(rule.right,size);
             if (pieces[left]==null || pieces[right]==null) { throw new IllegalArgumentException("Merge components must be bytes or earlier merged tokens"); }
@@ -88,7 +90,11 @@ public final class BytePairTokenizer implements Tokenizer {
     private void encodePiece(byte[] bytes,ArrayList<Integer> output) {
         if (bytes.length==0) { return; }
         int[] ids=new int[bytes.length],previous=new int[bytes.length],next=new int[bytes.length]; var queue=new PriorityQueue<Merge>();
-        for (int i=0;i<bytes.length;i++) { ids[i]=byteIds[bytes[i]&255]; previous[i]=i-1; next[i]=i+1==bytes.length ? -1 : i+1; }
+        for (int i=0;i<bytes.length;i++) {
+            ids[i]=byteIds[bytes[i]&255];
+            if (ids[i]<0) { throw new IllegalArgumentException("Tokenizer vocabulary has no token for byte 0x"+Integer.toHexString(bytes[i]&255)); }
+            previous[i]=i-1; next[i]=i+1==bytes.length ? -1 : i+1;
+        }
         for (int i=0;i<bytes.length-1;i++) { offer(i,i+1,ids,queue); }
         while (!queue.isEmpty()) {
             var merge=queue.remove(); int left=merge.left,right=merge.right;
@@ -114,6 +120,7 @@ public final class BytePairTokenizer implements Tokenizer {
         private TextNormalization normalization=TextNormalization.NONE;
         private PreTokenizer preTokenizer=PreTokenizers.wholeText();
         private Builder() { }
+        /** A 256-entry byte-to-ID table; -1 explicitly marks an unavailable byte, which fails encoding. */
         public Builder byteTokenIds(int... ids) { if (ids.length!=256) { throw new IllegalArgumentException("Exactly 256 byte IDs required"); } byteIds=ids.clone(); return this; }
         public Builder merge(int left,int right,int result) { rules.add(new Rule(left,right,result)); return this; }
         public Builder specialToken(int id,String spelling) {

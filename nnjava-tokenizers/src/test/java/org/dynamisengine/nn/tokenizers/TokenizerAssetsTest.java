@@ -12,6 +12,23 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TokenizerAssetsTest {
+    @Test void importsDeclaredDigitsByteLevelSequenceAndRejectsOtherSequences() throws Exception {
+        String pre="\"pre_tokenizer\":{\"type\":\"ByteLevel\",\"add_prefix_space\":false,\"use_regex\":true}";
+        String sequence="\"pre_tokenizer\":{\"type\":\"Sequence\",\"pretokenizers\":[{\"type\":\"Digits\",\"individual_digits\":true},{\"type\":\"ByteLevel\",\"add_prefix_space\":false,\"use_regex\":true}]}";
+        String source=hf(Files.readString(vocabulary()),"[\"h e\",\"he l\",\"hel l\",\"hell o\"]").replace(pre,sequence);
+        Path file=directory.resolve("sequence.json"); Files.writeString(file,source);
+        var tokenizer=TokenizerAssets.huggingFace(file,TokenizerAssets.Options.gpt2());
+        assertArrayEquals(new int[]{259},tokenizer.encode("hello")); assertEquals(4,tokenizer.encode("1234").length);
+        Files.writeString(file,source.replace("\"individual_digits\":true","\"individual_digits\":false"));
+        assertThrows(IOException.class, () -> TokenizerAssets.huggingFace(file,TokenizerAssets.Options.gpt2()));
+    }
+    @Test void tokenizerJsonCanDeclareASparseAlphabetButUnavailableBytesFailExplicitly() throws Exception {
+        String source=hf("{\"a\":0,\"b\":1,\"ab\":2,\"<eos>\":3}","[\"a b\"]").replace("\"id\":260","\"id\":3").replace("<|endoftext|>","<eos>");
+        Path file=directory.resolve("sparse.json"); Files.writeString(file,source);
+        var tokenizer=TokenizerAssets.huggingFace(file,new TokenizerAssets.Options(Set.of(),null,"<eos>"));
+        assertArrayEquals(new int[]{2},tokenizer.encode("ab")); assertEquals(4,tokenizer.vocabulary().size());
+        assertThrows(IllegalArgumentException.class, () -> tokenizer.encode("c"));
+    }
     @TempDir Path directory;
     private static final String MERGES = "#version: 0.2\nh e\nhe l\nhel l\nhell o\n";
 

@@ -33,6 +33,7 @@
         <module>nnjava-tokenizers</module>
         <module>nnjava-data</module>
         <module>nnjava-io</module>
+        <module>nnjava-pretrained</module>
         <module>nnjava-training</module>
         <module>nnjava</module>
         <module>neuralnetworks</module>
@@ -42,6 +43,7 @@
     </modules>
     <dependencyManagement>
         <dependencies>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-pretrained</artifactId><version>${project.version}</version></dependency>
             <dependency>
                 <groupId>org.dynamisengine</groupId>
                 <artifactId>nnjava-formats</artifactId>

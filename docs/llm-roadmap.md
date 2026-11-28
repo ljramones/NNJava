@@ -9,8 +9,9 @@ This document describes the full target scope. The [main roadmap](roadmap.md)
 distinguishes implemented and planned APIs. CPU configurable models, cache sessions,
 single-sequence generation, and optional byte-level BPE now have implementations;
 see the [generation guide](generation-guide.md). The main stack pins Vectrix 4.1.0
-and DynamisGPU 1.14.1. General weight/tokenizer readers are implemented; real checkpoint
-compatibility, corpus workflows, adaptation,
+and DynamisGPU 1.14.1. General weight/tokenizer readers and the first optional Llama
+adapter are implemented; SmolLM2-135M passes CPU reference-token/logit acceptance.
+Further checkpoint compatibility, corpus workflows, adaptation,
 GPU model execution, and scale features remain separate milestones. The standalone
 GGUF/Metal experiment retains its own dependency and accuracy limits.
 
@@ -99,7 +100,8 @@ Initial IO-04/IO-05 and LM-17 infrastructure is implemented: mapped GGUF v3 and
 safetensors/shards, explicit checked name/transposed-layout/tied-weight mappings,
 and per-tensor staging. LM-09 includes GPT-2 files and a checked ByteLevel JSON
 subset. [Supported boundaries](pretrained-loading.md) are explicit; quantized
-placement, model-family adapters and real checkpoint acceptance remain pending.
+placement and additional model families remain pending. The optional pretrained
+module now supplies a standard Llama adapter and [SmolLM2 CPU acceptance](pretrained-model-validation.md).
 
 ### Training and adaptation
 

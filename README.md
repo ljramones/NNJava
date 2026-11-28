@@ -6,8 +6,9 @@ kernels. Applications choose their architectures, weights, vocabulary, data, and
 training recipes in separate projects. Fluent NN/causal-model definitions and CPU
 cache sessions, fluent training, token generation, and optional byte-level BPE
 are implemented, alongside general GGUF/safetensors readers, explicit weight mappings,
-and GPT-2/selected ByteLevel tokenizer-file loading. Real checkpoint validation,
-pretraining data workflows, and fine-tuning remain on the roadmap. A separate experimental GGUF/Metal path is
+and GPT-2/selected ByteLevel tokenizer-file loading. An optional Llama adapter now
+runs SmolLM2-135M against independent tokenizer/logit references on scalar and SIMD CPU.
+GPU model execution, pretraining data workflows, and fine-tuning remain on the roadmap. A separate experimental GGUF/Metal path is
 described below.
 
 ## Build and run
@@ -85,6 +86,8 @@ The [generation/tokenizer guide](docs/generation-guide.md) covers token sampling
 streaming text, reusable settings, dependency isolation, and remaining format support.
 The [pretrained loading guide](docs/pretrained-loading.md) covers container ownership,
 weight mappings, tokenizer assets, and supported format boundaries.
+The [real pretrained-model guide](docs/pretrained-model-validation.md) covers the optional
+Llama adapter, pinned SmolLM2 assets, reference generation and CPU acceptance evidence.
 
 ## Compose a network
 

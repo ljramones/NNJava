@@ -46,7 +46,7 @@ for this implementation slice.
 | NNJava                  | Tensor/model semantics, differentiation, builders, layers, generation, optional tokenization, training/adaptation, evaluation, data contracts, weight formats, persistence, and numerical-provider adapters. |
 | Vectrix and vectrix-gpu | CPU mathematics and kernels; exact (bit-identical) GPU twins of them.                                                                                                                                        |
 | DynamisGPU              | The GPU runtime, and throughput GPU kernels (`dynamis-gpu-primitives`) with published accuracy contracts.                                                                                                    |
-| Consuming application   | Its model/weight choices, tokenizer configuration and vocabulary, data, prompt/chat formats, recipes, explicit model-family mappings, and application behavior.                                              |
+| Consuming application   | Model/weight choices, tokenizer configuration and vocabulary, data, prompt/chat formats, recipes, selection/customization of explicit family adapters, and application behavior.                              |
 
 NNJava reuses both GPU kernel libraries:
 
@@ -153,7 +153,7 @@ its planned builder or orchestration API already exists.
 | DATA-02                       | Sequence padding/packing, length-aware batches, stream adapters                                       | Partial mask support; document-boundary packing and resumable token streams planned                               | P1 R3/R5 L3           |
 | IO-01                         | Definition/model save/load and schema migration                                                       | Definition codec and model archives implemented; automatic schema migration remains planned                                                         | P0 R2/R3              |
 | IO-02 | Full reproducible training resume | Trainer checkpoints include partial metrics, loop/stopping state and loaders; interrupted/resumed final archives match byte for byte | P0 R3 |
-| IO-03                         | Extensible external tensor archive codecs                                                             | Planned codec extension points; explicit model-family mappings stay downstream                                    | P2 R5                 |
+| IO-03 | Extensible external tensor archive codecs | Codec extension points planned; optional explicit family adapters live in pretrained | P2 R5 |
 | IO-04 | GGUF container reader: neutral tensor/metadata/quantized-block descriptors | Implemented mapped v3 reader in independent formats module; quantized placement remains adapter work | P1 R5 L2 with EXEC-05 |
 | IO-05 | Safetensors and supported sharded weight indexes; bounded loading | Implemented checked mapped files/sibling shard indexes and per-tensor staging | P1 R5 L2 |
 | LM-01                         | Configurable attention, gated blocks, masks, norms, residuals, tied weights                           | CPU decoder blocks and configuration builders implemented; further variants planned                                                | P0 R5 L1              |
@@ -164,15 +164,15 @@ its planned builder or orchestration API already exists.
 | LM-06                         | Position schemes, rotary scaling, sliding windows, context validation                                 | RoPE/base and causal/explicit masks exposed; scaling/window policies planned                                                 | P1 R5 L1/L5           |
 | LM-07 | Greedy/sampled generation, logits processors, stops, streaming, cancellation | Implemented single-sequence host sampling, penalties, token stops, streaming/cancellation, log probabilities and reusable schemas | P0 R5 L2 |
 | LM-08                         | Batched/paged inference, prefix sharing, continuous batching, memory limits                           | Upstream paged cache exists; orchestration planned                                                                | P1 R5 L2/L5           |
-| LM-09 | Tokenizer SPI, incremental decoding, optional BPE/SentencePiece providers | Implemented SPI/BPE/UTF-8 streaming, GPT-2 files and checked ByteLevel JSON subset; SentencePiece/further pipelines pending | P1 R5 L2 |
+| LM-09 | Tokenizer SPI, incremental decoding, optional BPE/SentencePiece providers | Implemented SPI/BPE/UTF-8 streaming, GPT-2/ByteLevel JSON, individual-Digits sequence and sparse alphabets; SentencePiece/further pipelines pending | P1 R5 L2 |
 | LM-10                         | Causal-LM pretraining: shifted labels, token masks, packed document boundaries, token-normalized loss | Generic training primitives exist; LM workflow planned                                                            | P0 R5 L3              |
 | LM-11                         | Supervised fine-tuning with token loss masks and selected trainable parameters                        | Planned; recipes/data remain caller-defined                                                                       | P1 R5 L4              |
 | LM-12                         | QLoRA with frozen quantized base and trainable adapters                                               | Planned; quantized backward and precision prerequisites                                                           | P2 R5 L5              |
-| LM-13 | Perplexity, token-weighted evaluation, reference-logit checks, LLM benchmarks | Whole-model gradient, cache parity and resume checks implemented; corpus evaluation/benchmark APIs planned | P0 R5 L1/L3 |
+| LM-13 | Perplexity, token-weighted evaluation, reference-logit checks, LLM benchmarks | Whole-model gradients, cache/resume and real SmolLM2 reference-logit checks implemented; corpus metrics/controlled benchmarks planned | P0 R5 L1/L3 |
 | LM-14                         | Token-correct gradient accumulation, activation recomputation, training memory policies               | Planned above existing explicit training/checkpoint APIs                                                          | P1 R5 L3/L5           |
 | LM-15                         | MoE routing/expert blocks and auxiliary losses                                                        | Planned later expansion; distributed experts require DIST-01                                                      | P2 R5 L6              |
 | LM-16                         | Beam search, constrained-decoding hooks, speculative decoding                                         | Planned later expansion; strategy-specific validation required                                                    | P2 R5 L6              |
-| LM-17 | Weight-name/layout adapters, aliases, quantized placement and loading policies | Explicit names/matrix transposes, tied storage and bounded imports implemented; family adapters and quantized placement pending | P1 R5 L2 |
+| LM-17 | Weight-name/layout adapters, aliases, quantized placement and loading policies | Explicit mappings/ties/bounded imports and optional standard Llama adapter implemented; additional families and quantized placement pending | P1 R5 L2 |
 | LM-18                         | Preference objectives such as DPO and reference-model handling                                        | Candidate expansion; separate from a full RL platform                                                             | P2 R5 L6              |
 | EX-01                         | First-class examples module and shared runner                                                         | Implemented with regression and tiny-transformer examples                                                         | P0 R1                 |
 | EX-02 | MLP example | Implemented fluent XOR MLP with definition and weight save/load | P0 R2/R3 |
@@ -182,7 +182,7 @@ its planned builder or orchestration API already exists.
 | EX-08                         | Residual CNN example                                                                                  | Planned follow-on                                                                                                 | P1 after CNN support  |
 | EX-09 | Small causal transformer example | Implemented direct and fluent decoder examples with training, restore and cache checks | P0 R5 |
 | EX-10                         | Encoder/decoder sequence example                                                                      | Planned later architecture expansion                                                                              | P2 R5 L6              |
-| EX-11                         | Real pretrained-model inference consumer                                                              | Planned; reference logits, output head, sampling, growing KV cache, hardware measurements                         | P0 R5 L2              |
+| EX-11 | Real pretrained-model inference consumer | SmolLM2-135M scalar/SIMD CPU acceptance implemented: independent tokens/all-vocabulary logits, readout, generation, growing cache and request timings; GPU pending | P0 R5 L2 |
 | EX-12 | Small LM pretraining and reproducible resume | Small token-ID training/resume implemented; corpus/packing workflow remains planned | P0 R5 L3 |
 | EX-13                         | Supervised and LoRA fine-tuning examples                                                              | Planned; reload adapters and compare output                                                                       | P1 R5 L4              |
 | EXEC-01                       | Vectrix CPU migration (`vectrix-core` and `vectrix-ml`)                                               | Implemented on 4.1.0; scalar/SIMD CPU checks pass                                                                 | P0 before R1/GPU      |
@@ -213,8 +213,9 @@ The module/provider foundation, CPU migration, first NN/LM builders, definition
 persistence, CPU cache sessions, supervised Trainer/data APIs, CPU CNN support,
 RNN/LSTM/GRU cells/sequences/examples, token generation, and optional byte-level
 BPE, neutral GGUF/safetensors readers and explicit pretrained mappings are implemented.
-Next validate a selected real checkpoint and add model-family adapters,
-branched/residual builders, expanded GPU numerical coverage, and
+The optional standard Llama adapter and first real checkpoint CPU validation are
+also implemented. Next add branched/residual builders, expanded GPU numerical coverage,
+GPU model inference, additional family adapters, and
 sequence-data packing/streaming. Preserve separate correctness and performance
 milestones for real-model inference and LM training. Keep nonlinear classifiers
 and caller-configured causal models as consumer API tests.

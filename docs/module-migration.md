@@ -29,6 +29,7 @@ that transitively exposes the CPU framework. GPU dependencies remain opt-in.
 | `nnjava-tokenizers` | `org.dynamisengine.nn.tokenizers` |
 | `nnjava-data` | `org.dynamisengine.nn.data` |
 | `nnjava-io` | `org.dynamisengine.nn.io` |
+| `nnjava-pretrained` | `org.dynamisengine.nn.pretrained` |
 | `nnjava-training` | `org.dynamisengine.nn.training` |
 | `nnjava` | `org.dynamisengine.nn.starter` |
 | `neuralnetworks` | `org.dynamisengine.nn` |
@@ -42,6 +43,10 @@ in the CPU starter; tokenizers remain an explicit optional dependency. The
 IO and tokenizers now depend on formats, which uses Jackson Core 2.20.2. Minimal
 IO/tokenizer module paths therefore include formats and `com.fasterxml.jackson.core`.
 Generation-only consumers still need neither. See [pretrained loading](pretrained-loading.md).
+`nnjava-pretrained` is an optional family-adapter artifact, outside the convenience
+starter. Its standard Llama path uses IO/transformer public contracts without a
+tokenizer, concrete backend or training dependency. The standalone pretrained
+consumer supplies those optional inference pieces explicitly.
 
 ## Provider and persistence changes
 

@@ -14,6 +14,7 @@
     </properties>
     <dependencyManagement>
         <dependencies>
+            <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-pretrained</artifactId><version>${nnjava.version}</version></dependency>
             <dependency>
                 <groupId>org.dynamisengine</groupId>
                 <artifactId>nnjava-formats</artifactId>

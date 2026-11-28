@@ -1,0 +1,160 @@
+{
+  "date": "2026-11-27",
+  "baseline": "22bef60",
+  "targets": {
+    "jdk": "25",
+    "vectrix": "4.1.0",
+    "dynamisgpu": "1.14.1"
+  },
+  "new_module": {
+    "artifact": "nnjava-pretrained",
+    "jpms": "org.dynamisengine.nn.pretrained",
+    "optional": true,
+    "numerical_provider_dependencies": [],
+    "tokenizer_dependencies": [],
+    "training_dependencies": []
+  },
+  "checkpoint": {
+    "model": "HuggingFaceTB/SmolLM2-135M",
+    "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "license": "Apache-2.0",
+    "weight_bytes": 269060552,
+    "layers": 30,
+    "width": 576,
+    "query_heads": 9,
+    "kv_heads": 3,
+    "vocabulary": 49152,
+    "checkpoint_dtype": "BF16",
+    "execution_dtype": "FP32",
+    "parameters": 134515008,
+    "unique_parameter_tensors": 272,
+    "validated_context_capacity": 64,
+    "published_context_capacity": 8192,
+    "artifact_manifest": "../../tools/pretrained/smollm2-135m.json"
+  },
+  "reference": {
+    "versions": {
+      "torch": "2.6.0",
+      "transformers": "4.46.3",
+      "tokenizers": "0.20.3",
+      "safetensors": "0.5.3",
+      "numpy": "2.2.2"
+    },
+    "python": "3.12.16",
+    "device": "cpu",
+    "dtype": "float32",
+    "attention": "eager",
+    "threads": 1,
+    "logits_file": "reference-logits.f32",
+    "logits_sha256": "89bd49f937196fc27ce73d0aaf1cec0cf5868cb4b5ad21d5ddb95255c66d10d0",
+    "rows": 15,
+    "vocabulary_size": 49152
+  },
+  "checks": [
+    {
+      "command": "mvn -o -q -Pgpu,metal install",
+      "status": "passed",
+      "tests": 256,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks clean verify",
+      "status": "passed",
+      "tests": 256,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+      "status": "passed"
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu verify",
+      "status": "passed",
+      "note": "Final consumer report separates NNJava cache consistency from independent reference errors"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-dir MODEL_DIR --pretrained-report SCALAR_REPORT",
+      "status": "passed",
+      "device": "Apple M4 Max"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --simd --pretrained-dir MODEL_DIR --pretrained-report SIMD_REPORT",
+      "status": "passed"
+    },
+    {
+      "command": "python tools/pretrained/generate_reference.py MODEL_DIR",
+      "status": "passed",
+      "note": "Pinned local-only independent PyTorch/Transformers FP32 eager CPU reference; repeated generation"
+    },
+    {
+      "command": "python3 tools/pretrained/fetch_smollm2.py MODEL_DIR --verify-only",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/pretrained/fetch_smollm2.py FRESH_DIR",
+      "status": "passed",
+      "note": "Missing 704-byte configuration downloaded; large assets reused by hardlink and all hashes verified"
+    }
+  ],
+  "test_counts": {
+    "core": 5,
+    "formats": 11,
+    "generation": 24,
+    "tokenizers": 26,
+    "pretrained": 4,
+    "integration": 171,
+    "examples": 8,
+    "gpu_adapter": 7,
+    "total": 256,
+    "new_tests": 13
+  },
+  "real_model_acceptance": {
+    "backends": [
+      "Vectrix scalar CPU",
+      "Vectrix SIMD CPU"
+    ],
+    "tokenization_vectors": 10,
+    "prompts": 3,
+    "generated_tokens_per_prompt": 4,
+    "reference_rows_per_backend": 15,
+    "compared_logits_per_backend": 737280,
+    "maximum_absolute_reference_error": 0.00014162063598632812,
+    "rms_reference_error": 2.094424145838903e-05,
+    "cache_full_and_reset_max_absolute_error": 0.0,
+    "tolerance": {
+      "absolute": 0.003,
+      "relative": 0.0003
+    },
+    "exact_generated_ids_and_decoded_text": true,
+    "cache_grows_for_every_accepted_token": true,
+    "allocation_baseline_restored": true
+  },
+  "reports": {
+    "reference": "smollm2-reference-2026-11-27.json",
+    "scalar": "smollm2-scalar-2026-11-27.json",
+    "simd": "smollm2-simd-2026-11-27.json"
+  },
+  "portable_validation": [
+    "Original two-layer BF16 tied and untied weights match independent FP32 Transformers logits, including cached decode",
+    "Standard Llama defaults, GQA geometry, controls, definition serialization and context caps",
+    "Unsupported architectural switches, dimensions, types and token IDs fail before model construction",
+    "Missing tensors, ambiguous/missing archives and conflicting tied head copies reject with no owned-model leak",
+    "Injected second weight-copy failure closes every unreturned parameter; borrowed context retains backend failure",
+    "Individual Unicode number splitting composes with ByteLevel and blocks cross-digit merges",
+    "Sparse byte vocabularies preserve token IDs and reject unavailable input bytes explicitly"
+  ],
+  "limits": [
+    "CPU model acceptance only; GPU adapter remains a tested storage/arithmetic/GEMM subset",
+    "Other Llama configurations and model families need their own reference acceptance; scaled/partial/interleaved RoPE, sliding windows and bias variants are rejected",
+    "Context capacity 64 is tested; published length 8192 is not a long-context performance or accuracy claim",
+    "BF16 checkpoint unpacking into FP32 does not add BF16 compute or mixed-precision training",
+    "Tokenizer vectors validate selected semantics with JDK Unicode tables; unsupported input bytes fail explicitly",
+    "Timings are one CPU request per prompt after correctness passes, not a controlled throughput benchmark or peak-memory measurement",
+    "Large model assets and full reference binary remain outside Git; only pinned hashes, compact references, original tiny fixtures and reports are committed",
+    "No GPU model-throughput, GPU training or Vulkan hardware claim"
+  ]
+}

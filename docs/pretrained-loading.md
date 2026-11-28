@@ -106,13 +106,15 @@ still require `EncodeOptions`. The `gpt2-files` provider accepts exactly
 `vocabulary` and `merges` paths through `TokenizerProviders.create`.
 
 `TokenizerAssets.huggingFace(path, options)` accepts a checked `tokenizer.json`
-subset: BPE with ByteLevel pre-tokenization/decoding, `add_prefix_space=false`,
+subset: BPE with ByteLevel pre-tokenization/decoding, optionally preceded by
+individual Digits, `add_prefix_space=false`,
 `use_regex=true`, string or pair-array merges, and simple special added tokens.
 It rejects normalization, dropout, unknown-token fallback, byte fallback, alternate
 boundary rules, truncation/padding, non-special added tokens, whitespace-stripping
 matches, and template post-processors. It does not read `tokenizer_config.json`,
 chat templates, SentencePiece, or Llama tokenizer rules. Match vocabulary size,
 token IDs, control policy, Unicode behavior, and model configuration in the consumer.
+HF imports can declare a sparse byte alphabet; unavailable input bytes fail explicitly.
 
 ## Verification and next milestone
 
@@ -121,8 +123,8 @@ types, explicit transpose/expansion, complete validation before writes, failure
 cleanup, tied decoder logits and cached generation, and supported tokenizer assets.
 Standalone JPMS consumers exercise format-only parsing, model-only weight import,
 and tokenizer-file loading without training or numerical tokenizer dependencies.
-Fixtures are synthetic. A selected real checkpoint still needs model-family
-configuration/mappings, reference-token/logit fixtures, and end-to-end measurements
-before claiming pretrained model compatibility or performance.
+The initial format fixtures are synthetic. A subsequent optional Llama adapter and
+[real SmolLM2 validation](pretrained-model-validation.md) now check a selected checkpoint
+against reference tokens, all-vocabulary logits and complete CPU inference requests.
 The [verification record](evidence/pretrained-loading-2026-11-27.json) records
 243 passing scalar/SIMD/Metal reactor tests and the standalone consumer checks.

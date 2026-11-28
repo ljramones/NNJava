@@ -9,6 +9,7 @@
     </parent>
     <artifactId>nnjava-integration-tests</artifactId>
     <dependencies>
+        <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-pretrained</artifactId></dependency>
         <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-tokenizers</artifactId></dependency>
         <dependency>
             <groupId>org.dynamisengine</groupId>

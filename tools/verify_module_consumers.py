@@ -8,18 +8,26 @@ import subprocess
 parser = argparse.ArgumentParser()
 parser.add_argument("--gpu-metal", action="store_true")
 parser.add_argument("--repository", type=Path, default=Path.home() / ".m2/repository")
+parser.add_argument("--pretrained-dir", type=Path, help="Opt-in pinned SmolLM2 assets plus independently generated reference")
+parser.add_argument("--pretrained-report", type=Path)
+parser.add_argument("--simd", action="store_true", help="Use installed SIMD Vectrix artifacts and enable the vector module")
 args = parser.parse_args()
+if args.pretrained_report and args.pretrained_dir is None:
+    parser.error("--pretrained-report requires --pretrained-dir")
 root = Path(__file__).resolve().parents[1]
 repository = args.repository / "org/dynamisengine"
 
-def artifact(name, version):
-    path = repository / name / version / f"{name}-{version}.jar"
+def artifact(name, version, classifier=""):
+    suffix = f"-{classifier}" if classifier else ""
+    path = repository / name / version / f"{name}-{version}{suffix}.jar"
     if not path.is_file():
         raise SystemExit(f"Missing installed artifact: {path}")
     return path
 
 def run(module, paths, *arguments, native=False):
     command = ["java"]
+    if args.simd:
+        command += ["--add-modules", "jdk.incubator.vector"]
     if native:
         command += ["--enable-native-access=org.dynamisengine.gpu.metal"]
         # Published shader packages are encapsulated; KernelLibrary reads them
@@ -32,7 +40,7 @@ def run(module, paths, *arguments, native=False):
     command += ["--module-path", os.pathsep.join(map(str, paths)), "-m", module, *arguments]
     subprocess.run(command, check=True, cwd=root)
 
-numerics = [artifact(name, "4.1.0") for name in ("vectrix-core", "vectrix-ml")]
+numerics = [artifact(name, "4.1.0", "simd" if args.simd else "") for name in ("vectrix-core", "vectrix-ml")]
 formats = [artifact("nnjava-formats", "0.1.0-SNAPSHOT"),
            args.repository / "com/fasterxml/jackson/core/jackson-core/2.20.2/jackson-core-2.20.2.jar"]
 run("example.nnjava.formats/example.FormatsConsumer",
@@ -52,6 +60,12 @@ run("example.nnjava.generation/example.GenerationConsumer",
     [root / "examples/generation-consumer/target/classes", *generation, *numerics])
 run("example.nnjava.tokenizers/example.TokenizerConsumer",
     [root / "examples/tokenizer-consumer/target/classes", artifact("nnjava-tokenizers", "0.1.0-SNAPSHOT"), *formats])
+pretrained = [artifact(name, "0.1.0-SNAPSHOT") for name in ("nnjava-pretrained", "nnjava-tokenizers", "nnjava-io")]
+pretrained_arguments = ["--self-test"] if args.pretrained_dir is None else [str(args.pretrained_dir.resolve())]
+if args.pretrained_report:
+    pretrained_arguments.append(str(args.pretrained_report.resolve()))
+run("example.nnjava.pretrained/example.PretrainedConsumer",
+    [root / "examples/pretrained-consumer/target/classes", *pretrained, *generation, *formats, *numerics], *pretrained_arguments)
 if args.gpu_metal:
     gpu = [artifact(name, "0.1.0-SNAPSHOT") for name in ("nnjava-core", "nnjava-backend-vectrix-gpu")]
     gpu += [artifact("vectrix-gpu", "4.1.0"), *numerics]
