@@ -7,6 +7,7 @@ import org.dynamisengine.nn.model.ComponentSpec;
 import org.dynamisengine.nn.nn.*;
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.runtime.ExecutionContext;
+import org.dynamisengine.nn.runtime.CachedAttention;
 import org.dynamisengine.nn.tensor.DType;
 import org.dynamisengine.nn.tensor.Shape;
 import org.dynamisengine.nn.tensor.Tensor;
@@ -47,12 +48,15 @@ public final class TransformerBlock extends AbstractModule implements UnaryModul
     @Override public Tensor forward(Tensor input) { return forward(input, null); }
     public Tensor forward(Tensor input, Tensor allowed) { return compute(input, allowed, null); }
     public Tensor decode(Tensor input, KvCache cache, Tensor allowed) {
+        return decode(input, (CachedAttention) cache, allowed);
+    }
+    public Tensor decode(Tensor input, CachedAttention cache, Tensor allowed) {
         ensureOpen();
         if (isTraining() || context.activeTape() != null) { throw new IllegalStateException("Cached decoding requires evaluation mode without a gradient tape"); }
         return compute(input, allowed, java.util.Objects.requireNonNull(cache));
     }
 
-    private Tensor compute(Tensor input, Tensor allowed, KvCache cache) {
+    private Tensor compute(Tensor input, Tensor allowed, CachedAttention cache) {
         ensureOpen(); context.requireContext(input);
         try (Tensor normalized = attentionNorm.forward(input);
                 Tensor attended = cache == null ? attention.forward(normalized, allowed, true) : attention.decode(normalized, cache, allowed);

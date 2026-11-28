@@ -29,6 +29,8 @@ import org.dynamisengine.nn.backend.Completion;
 import org.dynamisengine.nn.backend.KernelCall;
 import org.dynamisengine.nn.backend.KernelTensor;
 import org.dynamisengine.nn.backend.Operation;
+import org.dynamisengine.nn.backend.CommandCapture;
+import org.dynamisengine.nn.backend.PagedAttentionState;
 import org.dynamisengine.nn.runtime.Device;
 import org.dynamisengine.nn.tensor.DType;
 import org.dynamisengine.nn.tensor.Shape;
@@ -52,6 +54,8 @@ public final class GpuBackend implements Backend {
     private final List<GpuCompletion> pending = new ArrayList<>();
     private final Map<Operation, String> tiers = new LinkedHashMap<>();
     private final Map<Operation, AccuracyContract> contracts = new LinkedHashMap<>();
+    private final Set<AutoCloseable> inferenceResources = new java.util.LinkedHashSet<>();
+    private GpuDecodeCapture capture;
     private final GpuNeuralKernels neural;
     private final GpuTensorKernels tensors;
     private final GpuSamplingKernels sampling;
@@ -115,6 +119,32 @@ public final class GpuBackend implements Backend {
     }
     GpuBuffer storage(KernelTensor tensor) { return own(tensor.buffer()).buffer; }
     int liveBufferHandles() { return allocations.size(); }
+
+    void ownInferenceResource(AutoCloseable resource) { inferenceResources.add(resource); }
+    void releaseInferenceResource(AutoCloseable resource) { inferenceResources.remove(resource); }
+    @Override public boolean supportsPagedAttention(PagedAttentionState.Config config) {
+        return mode == GpuMode.THROUGHPUT && config.headDim() <= 256
+                && gpu.capabilities().dataTypes().contains(GpuCapabilities.FP16)
+                && gpu.capabilities().maxGroupThreads() >= 256;
+    }
+    @Override public PagedAttentionState createPagedAttention(PagedAttentionState.Config config) {
+        ensureOpen();
+        if (!supportsPagedAttention(config)) { throw new UnsupportedOperationException("Paged FP16 attention requires throughput mode and a supported device"); }
+        var state = new GpuPagedAttention(this, gpu, config); ownInferenceResource(state); return state;
+    }
+    @Override public boolean supportsCommandRecording() { return mode == GpuMode.THROUGHPUT; }
+    @Override public CommandCapture beginCommandCapture() {
+        ensureOpen();
+        if (!supportsCommandRecording()) { throw new UnsupportedOperationException("Recording requires throughput mode"); }
+        if (capture != null) { throw new IllegalStateException("Nested GPU captures are not supported"); }
+        capture = new GpuDecodeCapture(this, gpu); return capture;
+    }
+    void endCapture(GpuDecodeCapture value) { if (capture == value) { capture = null; } }
+    Completion submitCommands(Consumer<GpuCommandEncoder> encode) { return submit(encode, () -> { }); }
+    void recordingPositionLimit(int limit) { if (capture != null) { capture.limitPosition(limit); } }
+    void rotaryPositions(GpuCommandEncoder encoder, GpuBuffer target, byte[] bytes, int rows) {
+        if (capture != null) { capture.positions(target, rows); } else { encoder.upload(target, bytes); }
+    }
 
     /**
      * Present after the first throughput GEMM; exposes the upstream accuracy contract.
@@ -517,6 +547,7 @@ public final class GpuBackend implements Backend {
     }
 
     private Completion download(KernelTensor source, Object target, DType dtype, int count) {
+        if (capture != null) { throw new UnsupportedOperationException("Host readbacks cannot run during command capture"); }
         Allocation allocation = own(source.buffer());
         if (allocation.dtype != dtype || source.layout().shape().elements() != count) {
             throw new IllegalArgumentException("Download type/count mismatch");
@@ -553,6 +584,7 @@ public final class GpuBackend implements Backend {
 
     private Completion submit(Consumer<GpuCommandEncoder> encode, Runnable publish) {
         ensureOpen();
+        if (capture != null) { encode.accept(capture); return Completion.completed(); }
         try (var encoder = gpu.encoder()) {
             encode.accept(encoder);
             return submitted(encoder, publish);
@@ -604,6 +636,13 @@ public final class GpuBackend implements Backend {
             }
         }
         pending.clear();
+        if (capture != null) { capture.close(); }
+        for (var resource : List.copyOf(inferenceResources).reversed()) {
+            try { resource.close(); } catch (Exception error) {
+                if (failure == null) { failure = new IllegalStateException("GPU inference close failed", error); }
+                else { failure.addSuppressed(error); }
+            }
+        }
         for (var allocation : Set.copyOf(allocations)) {
             allocation.close();
         }

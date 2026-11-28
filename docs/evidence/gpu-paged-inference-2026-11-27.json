@@ -1,0 +1,81 @@
+{
+  "date": "2026-11-27",
+  "baseline_commit": "8111b2b",
+  "scope": "Optional single-sequence throughput inference: FP16 paged attention, complete page-scoped decoder recording, and generation adapters",
+  "versions": {"jdk": "25.0.4", "vectrix": "4.1.0", "dynamisgpu": "1.14.1"},
+  "hardware": "Apple M4 Max, native Metal, Mac OS X aarch64",
+  "reactor": {
+    "command": "mvn -o -q -Psimd,gpu,metal,benchmarks verify",
+    "tests": 328,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "gpu_tests": 64,
+    "new_native_paged_tests": 10,
+    "new_cpu_policy_tests": 1
+  },
+  "packaging_commands": [
+    "mvn -o -q -Pgpu,metal -DskipTests install",
+    "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+    "mvn -o -q -f examples/pom.xml -Pgpu verify"
+  ],
+  "acceptance_commands": [
+    "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-provider dynamis-gpu-throughput --pretrained-inference paged-fp16 --pretrained-dir /private/tmp/nnjava-smollm2-validation --pretrained-report docs/evidence/smollm2-paged-fp16-2026-11-27.json",
+    "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-provider dynamis-gpu-throughput --pretrained-inference paged-fp16-replay --pretrained-dir /private/tmp/nnjava-smollm2-validation --pretrained-report docs/evidence/smollm2-paged-replay-2026-11-27.json",
+    "python3 tools/verify_module_consumers.py --gpu-metal --pretrained-provider vectrix-gpu-exact --pretrained-dir /private/tmp/nnjava-smollm2-validation --pretrained-report docs/evidence/smollm2-fp32-after-paged-2026-11-27.json"
+  ],
+  "model_acceptance": {
+    "model": "HuggingFaceTB/SmolLM2-135M",
+    "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "layers": 30,
+    "unique_parameter_bytes_fp32": 538060032,
+    "context_capacity": 64,
+    "independent_fp32_reference_logits_per_policy": 737280,
+    "fp16_gate_declared_before_execution": "0.03 + 0.003 * abs(reference), plus exact greedy token IDs and text",
+    "unchanged_fp32_gate": "0.003 + 0.0003 * abs(reference)",
+    "maximum_absolute_reference_error_both_paged_policies": 0.012817740440368652,
+    "rms_reference_error_both_paged_policies": 0.0032622241039774367,
+    "cache_check_maximum_absolute_error": 0.008988380432128906,
+    "primary_replay_recordings": 3,
+    "primary_replay_runs": 12,
+    "dispatches_per_complete_decoder_graph": 603,
+    "additional_real_model_boundary_check": "31-token prefill and four decodes: bit-identical ordinary/recorded paged outputs, 35 committed tokens, two recordings",
+    "device_generated_token_reads_per_policy": 12,
+    "device_generated_scalar_token_uploads_per_policy": 0,
+    "fp32_downloads_rejected_during_device_generation": true,
+    "allocation_baseline_restored": true,
+    "gpu_consumer_omits_concrete_cpu_backend": true,
+    "reports": ["smollm2-paged-fp16-2026-11-27.json", "smollm2-paged-replay-2026-11-27.json"]
+  },
+  "original_fp32_control": {
+    "provider": "vectrix-gpu-exact",
+    "compared_logits": 737280,
+    "maximum_absolute_reference_error": 0.00016546249389648438,
+    "acceptance": "Unchanged 0.003 + 0.0003 * abs(reference), exact token/text continuations and transfer guards pass",
+    "report": "smollm2-fp32-after-paged-2026-11-27.json"
+  },
+  "native_checks": [
+    "FP32 and independent tiny checkpoint agreement; ordinary and recorded paged parity",
+    "40 successive decodes to capacity 70, rebuilding at two page boundaries",
+    "Previously returned logits remain unchanged across replay and page changes",
+    "Device generation repeats with fresh cache ownership and identical tokens",
+    "Policy, mask, batch, chunk, capacity and stale-weight rejection before mutation",
+    "Ordinary Backend.execute sees only the two device copies on a repeated decode",
+    "Deferred error snapshots preserve an early report through later resets",
+    "Out-of-range device token fails before logical cache commit",
+    "Injected recording scratch, position and report allocation failures release resources",
+    "Kernel-debug execution, chunked causality and context-owned resource cleanup"
+  ],
+  "boundaries": [
+    "FP16 cache/attention is an explicit throughput-only inference policy; default and exact sessions remain FP32",
+    "Batch one, causal attention without an additional mask, even head dimensions through 256, supported device group memory",
+    "Recorded decode accepts exactly one token; prefill and ordinary paged append accept multiple tokens",
+    "Pools allocate rounded session capacity up front; logical page reservations grow as needed",
+    "GPU input/output copies, host position/length metadata updates, error readbacks and sampling stay outside the recording",
+    "No custom shaders, numerical host fallback, dependency upgrades or float atomic accumulation introduced",
+    "FP16 gate is checkpoint-specific acceptance, not a general mathematical model-error guarantee",
+    "No controlled throughput improvement or measured GPU peak-memory claim",
+    "Vulkan, long contexts, shared pools, prefix sharing, fork/truncate, batching and scheduling remain unverified or unimplemented",
+    "GPU training and generalized mixed-precision or quantized execution remain separate gates"
+  ]
+}

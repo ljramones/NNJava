@@ -11,13 +11,17 @@ public final class CausalModels {
     private CausalModels() { }
     /** Tensor-only adapter: no logit downloads or token uploads between decode steps. */
     public static TensorAutoregressiveModel adaptDevice(CausalLanguageModel model) {
+        return adaptDevice(model, org.dynamisengine.nn.transformer.InferenceOptions.defaults());
+    }
+    public static TensorAutoregressiveModel adaptDevice(CausalLanguageModel model, org.dynamisengine.nn.transformer.InferenceOptions options) {
         Objects.requireNonNull(model);
+        Objects.requireNonNull(options);
         return new TensorAutoregressiveModel() {
             public org.dynamisengine.nn.runtime.ExecutionContext executionContext() { return model.executionContext(); }
             public int vocabularySize() { return model.definition().vocabularySize(); }
             public int contextLength() { return model.definition().contextLength(); }
             public Cursor openSession() {
-                var session = model.newSession(1);
+                var session = model.newSession(1, options);
                 return new Cursor() {
                     public int length() { return Math.toIntExact(session.length()); }
                     public Tensor prefill(Tensor tokens) { try (var logits = session.prefill(tokens)) { return last(logits); } }
@@ -32,12 +36,16 @@ public final class CausalModels {
         };
     }
     public static AutoregressiveModel adapt(CausalLanguageModel model) {
+        return adapt(model, org.dynamisengine.nn.transformer.InferenceOptions.defaults());
+    }
+    public static AutoregressiveModel adapt(CausalLanguageModel model, org.dynamisengine.nn.transformer.InferenceOptions options) {
         Objects.requireNonNull(model);
+        Objects.requireNonNull(options);
         return new AutoregressiveModel() {
             public int vocabularySize() { return model.definition().vocabularySize(); }
             public int contextLength() { return model.definition().contextLength(); }
             public Cursor openSession() {
-                var context=model.executionContext(); var session=model.newSession(1);
+                var context=model.executionContext(); var session=model.newSession(1, options);
                 return new Cursor() {
                     public int length() { return Math.toIntExact(session.length()); }
                     public float[] prefill(int[] tokens) {

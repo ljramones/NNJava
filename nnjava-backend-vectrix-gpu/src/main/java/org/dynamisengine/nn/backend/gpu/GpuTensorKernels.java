@@ -222,10 +222,13 @@ final class GpuTensorKernels implements AutoCloseable {
             casts().cast(e, Cast.Type.INT32, Cast.Type.INT32, backend.storage(ids), vector(ids), backend.storage(positions),
                     StridedView.of(0, new long[]{count}, new long[]{2}));
         } else {
+            if (rows.dimension(rows.rank() - 1) != 1 && e instanceof GpuDecodeCapture) {
+                throw new UnsupportedOperationException("Recorded rotary execution requires one-token decoding");
+            }
             var bytes = ByteBuffer.allocate(Math.multiplyExact(count, 8)).order(ByteOrder.LITTLE_ENDIAN);
             long sequence = rows.dimension(rows.rank() - 1), offset = attributes.integer("offset");
             for (int row = 0; row < count; row++) { bytes.putLong(offset + row % sequence); }
-            e.upload(backend.storage(positions), bytes.array());
+            backend.rotaryPositions(e, backend.storage(positions), bytes.array(), count);
         }
         backend.copy(e, input, call.output());
         if (rope == null) { rope = new GpuRope(device); }

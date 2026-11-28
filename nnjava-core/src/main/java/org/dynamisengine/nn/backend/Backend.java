@@ -32,6 +32,15 @@ public interface Backend extends AutoCloseable {
     /** Optional provider sampling. False by default, with no host sampling fallback. */
     default boolean supportsSampling(org.dynamisengine.nn.ops.SamplingOptions options, long rows, long vocabulary) { return false; }
 
+    default boolean supportsPagedAttention(PagedAttentionState.Config config) { return false; }
+    default PagedAttentionState createPagedAttention(PagedAttentionState.Config config) {
+        throw new UnsupportedOperationException("Paged FP16 attention unavailable");
+    }
+    default boolean supportsCommandRecording() { return false; }
+    default CommandCapture beginCommandCapture() {
+        throw new UnsupportedOperationException("Command recording unavailable");
+    }
+
     Completion execute(KernelCall call);
 
     default Completion update(OptimizerCall call) {

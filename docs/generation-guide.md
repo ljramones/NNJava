@@ -5,6 +5,9 @@ sampling, streaming callbacks, stopping, cancellation, and reusable settings.
 The explicit `DeviceGenerationSession` path now adds provider sampling with tensor
 logits and direct device-token feedback; see [GPU sampling](gpu-sampling.md) for its
 draw contract, supported settings and real-model verification.
+Throughput consumers may select the explicit
+[FP16 paged/recorded inference policy](gpu-paged-inference.md) when adapting a model;
+generation itself gains no native dependency.
 `nnjava-tokenizers` supplies byte-level BPE, vocabulary/special-token metadata,
 provider discovery, and incremental UTF-8 decoding. Both target JDK 25.
 

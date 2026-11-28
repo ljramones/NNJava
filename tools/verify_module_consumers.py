@@ -12,6 +12,7 @@ parser.add_argument("--repository", type=Path, default=Path.home() / ".m2/reposi
 parser.add_argument("--pretrained-dir", type=Path, help="Opt-in pinned SmolLM2 assets plus independently generated reference")
 parser.add_argument("--pretrained-report", type=Path)
 parser.add_argument("--pretrained-provider", choices=("vectrix", "vectrix-gpu-exact", "dynamis-gpu-throughput"), default="vectrix")
+parser.add_argument("--pretrained-inference", choices=("fp32", "paged-fp16", "paged-fp16-replay"), default="fp32")
 parser.add_argument("--simd", action="store_true", help="Use installed SIMD Vectrix artifacts and enable the vector module")
 args = parser.parse_args()
 if args.pretrained_report and args.pretrained_dir is None:
@@ -19,6 +20,8 @@ if args.pretrained_report and args.pretrained_dir is None:
 if args.pretrained_provider != "vectrix" and (not args.gpu_metal or args.pretrained_dir is None):
     parser.error("A GPU pretrained provider requires --gpu-metal and --pretrained-dir")
 root = Path(__file__).resolve().parents[1]
+if args.pretrained_inference != "fp32" and args.pretrained_provider != "dynamis-gpu-throughput":
+    parser.error("Paged FP16 inference requires --pretrained-provider dynamis-gpu-throughput")
 repository = args.repository / "org/dynamisengine"
 
 def artifact(name, version, classifier=""):
@@ -89,4 +92,4 @@ if args.gpu_metal:
         model_modules = [path for path in generation if path.name != "nnjava-backend-vectrix-0.1.0-SNAPSHOT.jar"]
         paths = list(dict.fromkeys([root / "examples/pretrained-consumer/target/classes", *pretrained, *model_modules, *formats, *gpu]))
         run("example.nnjava.pretrained/example.PretrainedConsumer", paths,
-            str(args.pretrained_dir.resolve()), str(report.resolve()), args.pretrained_provider, native=True)
+            str(args.pretrained_dir.resolve()), str(report.resolve()), args.pretrained_provider, args.pretrained_inference, native=True)

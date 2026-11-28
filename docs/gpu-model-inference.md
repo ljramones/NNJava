@@ -63,8 +63,9 @@ batch checks precede mutation, and weight changes invalidate a populated session
 until reset. Appends synchronize under the existing portable cache contract.
 The existing `GenerationSession` path reads the final logit row and samples on the
 host. The explicit [device-generation API](gpu-sampling.md) now samples on the GPU
-and feeds sampled tensors directly into decode. Paged caches and command replay
-remain later integrations.
+and feeds sampled tensors directly into decode. Throughput mode also supports
+the explicit [FP16 paged cache and recorded decode policy](gpu-paged-inference.md),
+with separate whole-model precision acceptance. This guide's default path stays FP32.
 
 One-token decoding exposed singleton matrix views with zero unused strides.
 The GEMM adapter now canonicalizes those contiguous layouts before passing leading
@@ -110,9 +111,9 @@ See the [verification record](evidence/gpu-model-2026-11-27.json) and linked rep
 
 ## Remaining work
 
-Next integrate paged caches and recorded decoding, then measure
-controlled end-to-end performance. Per-operation scratch allocation, packing and
-synchronization are optimization targets. Reports contain acceptance timings,
+Paged caches and recorded decoding now have an opt-in throughput policy. Next
+measure controlled end-to-end performance and extend shared-cache orchestration.
+Packing, synchronization and prefill scratch remain optimization targets. Reports contain acceptance timings,
 not a throughput benchmark or GPU peak-memory measurement. Capacity 64 is verified
 here; the checkpoint's published maximum context is not a long-context acceptance.
 

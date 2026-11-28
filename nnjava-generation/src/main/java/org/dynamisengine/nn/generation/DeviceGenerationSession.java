@@ -161,6 +161,9 @@ public final class DeviceGenerationSession implements AutoCloseable {
         private Builder() { }
         public Builder model(TensorAutoregressiveModel value) { model = Objects.requireNonNull(value); return this; }
         public Builder model(CausalLanguageModel value) { return model(CausalModels.adaptDevice(value)); }
+        public Builder model(CausalLanguageModel value, org.dynamisengine.nn.transformer.InferenceOptions options) {
+            return model(CausalModels.adaptDevice(value, options));
+        }
         public Builder sampling(SamplingParameters value) { sampling = Objects.requireNonNull(value); return this; }
         public Builder sampling(Consumer<SamplingParameters.Builder> settings) {
             var builder = sampling.toBuilder(); settings.accept(builder); sampling = builder.define(); return this;

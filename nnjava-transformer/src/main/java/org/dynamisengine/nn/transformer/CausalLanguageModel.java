@@ -8,6 +8,11 @@ import org.dynamisengine.nn.backend.Operation;
 import org.dynamisengine.nn.model.ComponentSpec;
 import org.dynamisengine.nn.nn.*;
 import org.dynamisengine.nn.runtime.ExecutionContext;
+import org.dynamisengine.nn.runtime.CachedAttention;
+import org.dynamisengine.nn.runtime.PagedAttentionCache;
+import org.dynamisengine.nn.runtime.RecordedExecution;
+import org.dynamisengine.nn.backend.PagedAttentionState;
+import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.tensor.DType;
 import org.dynamisengine.nn.tensor.Shape;
 import org.dynamisengine.nn.tensor.Tensor;
@@ -55,7 +60,8 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
     }
 
     /** The caller explicitly selects evaluation mode; this method never changes shared model mode. */
-    public InferenceSession newSession(int batchSize) { return new InferenceSession(this, batchSize); }
+    public InferenceSession newSession(int batchSize) { return newSession(batchSize, InferenceOptions.defaults()); }
+    public InferenceSession newSession(int batchSize, InferenceOptions options) { return new InferenceSession(this, batchSize, options); }
 
     private void validateTokens(Tensor tokens) {
         ensureOpen(); context.requireContext(tokens);
@@ -75,7 +81,7 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
         }
     }
 
-    private Tensor compute(Tensor tokens, Tensor allowed, KvCache[] caches) {
+    private Tensor compute(Tensor tokens, Tensor allowed, CachedAttention[] caches) {
         try (Tensor embedded = embedding.forward(tokens)) {
             Tensor hidden = embeddingDropout.forward(embedded);
             try {
@@ -214,37 +220,58 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
     public static final class InferenceSession implements AutoCloseable {
         private final CausalLanguageModel model;
         private final int batchSize;
-        private final KvCache[] caches;
+        private final CachedAttention[] caches;
+        private final KvCache[] fixed;
+        private final PagedAttentionCache paged;
+        private final InferenceOptions options;
+        private RecordedExecution recording;
+        private Tensor tokenInput;
+        private int recordingTokens, recordings, runs;
         private final Parameter[] parameters;
         private final long[] versions;
         private long length;
         private boolean closed, failed;
 
-        private InferenceSession(CausalLanguageModel model, int batchSize) {
+        private InferenceSession(CausalLanguageModel model, int batchSize, InferenceOptions options) {
             this.model = model;
             model.ensureOpen();
             if (batchSize <= 0) { throw new IllegalArgumentException("Session batch size must be positive"); }
             this.batchSize = batchSize;
+            this.options = java.util.Objects.requireNonNull(options);
             requireInference();
             var config = model.definition.block.attention();
             Shape shape = Shape.of(batchSize, config.kvHeads(), model.definition.contextLength, config.features() / config.heads());
             ModelBuild.parameter(model.context, model.definition.name + ".cache", shape, false);
-            caches = new KvCache[model.blocks.size()];
+            caches = new CachedAttention[model.blocks.size()];
             parameters = model.namedParameters().values().toArray(Parameter[]::new);
             versions = new long[parameters.length];
             refreshVersions();
+            if (options.cachePrecision() == InferenceOptions.CachePrecision.FP16_PAGED) {
+                if (batchSize != 1) { throw new UnsupportedOperationException("Paged FP16 sessions currently require batchSize=1"); }
+                if (options.recordDecode() && !model.context.supportsCommandRecording()) { throw new UnsupportedOperationException("Provider cannot record decoding"); }
+                var dimensions = new PagedAttentionState.Config(caches.length, config.heads(), config.kvHeads(),
+                        config.features() / config.heads(), model.definition.contextLength, options.pageSize());
+                paged = model.context.pagedAttention(dimensions); fixed = null;
+                for (int i = 0; i < caches.length; i++) { caches[i] = paged.layer(i); }
+                return;
+            }
+            paged = null; fixed = new KvCache[caches.length];
             try {
                 for (int i = 0; i < caches.length; i++) {
-                    caches[i] = new KvCache(model.context, batchSize, config.kvHeads(), model.definition.contextLength, config.features() / config.heads());
+                    fixed[i] = new KvCache(model.context, batchSize, config.kvHeads(), model.definition.contextLength, config.features() / config.heads());
+                    caches[i] = fixed[i];
                 }
             } catch (RuntimeException | Error error) {
-                for (KvCache cache : caches) { if (cache != null) { cache.close(); } }
+                for (KvCache cache : fixed) { if (cache != null) { cache.close(); } }
                 throw error;
             }
         }
 
         public long length() { ensureOpen(); return length; }
         public long capacity() { ensureOpen(); return model.definition.contextLength; }
+        public InferenceOptions options() { ensureOpen(); return options; }
+        public record ReplayStats(int recordings, int runs, int dispatches) { }
+        public ReplayStats replayStats() { ensureOpen(); return new ReplayStats(recordings, runs, recording == null ? 0 : recording.dispatches()); }
         public Tensor prefill(Tensor tokens) { return prefill(tokens, null); }
         public Tensor prefill(Tensor tokens, Tensor allowed) {
             ensureOpen();
@@ -265,13 +292,36 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
             long next = Math.addExact(length, tokens.shape().dimension(1));
             if (next > capacity()) { throw new IllegalArgumentException("Session context capacity exceeded"); }
             model.validateMask(allowed, batchSize, tokens.shape().dimension(1), next);
+            if (paged != null && allowed != null) { throw new UnsupportedOperationException("Paged sessions currently support causal attention without an additional mask"); }
+            if (options.recordDecode() && length > 0 && tokens.shape().dimension(1) != 1) {
+                throw new IllegalArgumentException("Recorded decode requires exactly one token; prefill accepts multiple tokens");
+            }
             for (int i = 0; i < parameters.length; i++) {
                 if (parameters[i].mutationVersion() != versions[i]) {
                     throw new IllegalStateException("Model weights changed; reset the session before continuing");
                 }
             }
             try {
-                Tensor result = model.compute(tokens, allowed, caches);
+                if (paged != null) {
+                    if (next > paged.reservedTokens()) { closeRecording(); }
+                    paged.prepare(Math.toIntExact(next));
+                }
+                Tensor result;
+                if (options.recordDecode() && length > 0) {
+                    if (tokenInput == null) { tokenInput = model.context.empty(DType.INT32, Shape.of(1, 1)); }
+                    model.context.assign(tokenInput, tokens); model.context.synchronize();
+                    if (recording == null) {
+                        recording = model.context.record(() -> model.compute(tokenInput, null, caches));
+                        recordingTokens = paged.reservedTokens(); recordings++;
+                    }
+                    if (recordingTokens != paged.reservedTokens()) { throw new IllegalStateException("Recording page domain changed"); }
+                    recording.run(Math.toIntExact(length)); runs++;
+                    try (Tensor logits = recording.output()) { result = Ops.copy(logits); }
+                } else { result = model.compute(tokens, allowed, caches); }
+                if (paged != null) {
+                    try { model.context.synchronize(); paged.commit(Math.toIntExact(next)); }
+                    catch (RuntimeException | Error error) { result.close(); throw error; }
+                }
                 length = next;
                 return result;
             } catch (RuntimeException | Error error) { failed = true; throw error; }
@@ -279,7 +329,8 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
 
         public void reset() {
             ensureOpen(); requireInference();
-            for (KvCache cache : caches) { cache.reset(); }
+            closeRecording();
+            if (paged != null) { paged.reset(); } else { for (KvCache cache : fixed) { cache.reset(); } }
             length = 0; refreshVersions();
         }
         private void refreshVersions() { for (int i = 0; i < parameters.length; i++) { versions[i] = parameters[i].mutationVersion(); } }
@@ -294,7 +345,14 @@ public final class CausalLanguageModel extends AbstractModule implements UnaryMo
         }
         @Override public void close() {
             model.context.checkThread();
-            if (!closed) { for (KvCache cache : caches) { cache.close(); } closed = true; }
+            if (!closed) {
+                closed = true;
+                try { closeRecording(); } finally {
+                    if (tokenInput != null) { tokenInput.close(); }
+                    if (paged != null) { paged.close(); } else { for (KvCache cache : fixed) { cache.close(); } }
+                }
+            }
         }
+        private void closeRecording() { if (recording != null) { try { recording.close(); } finally { recording = null; } } }
     }
 }

@@ -10,7 +10,7 @@ import org.dynamisengine.nn.tensor.TensorAccess;
 /**
  * Fixed-capacity session state. Returned read-only views remain valid until the next cache mutation.
  */
-public final class KvCache implements AutoCloseable {
+public final class KvCache implements AutoCloseable, org.dynamisengine.nn.runtime.CachedAttention {
     private final ExecutionContext context;
     private final Tensor keys, values;
     private final long batch, heads, capacity, features;
@@ -73,6 +73,16 @@ public final class KvCache implements AutoCloseable {
     public Tensor values() {
         ensureOpen();
         return view(values);
+    }
+
+    @Override public Tensor attend(Tensor query, Tensor key, Tensor value, Tensor allowed) {
+        return attend(query, key, value, allowed, null);
+    }
+    Tensor attend(Tensor query, Tensor key, Tensor value, Tensor allowed, org.dynamisengine.nn.nn.Dropout dropout) {
+        long position = length(); append(key, value);
+        try (Tensor keys = keys(); Tensor values = values()) {
+            return Attention.scaledDotProduct(query, keys, values, allowed, true, position, dropout);
+        }
     }
 
     private Tensor view(Tensor source) {

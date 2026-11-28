@@ -133,8 +133,17 @@ generation API uses host sampling. The explicit [device-generation path](gpu-sam
 now also matches all three continuations in both Metal modes, with guarded zero
 logit downloads and direct device-token feedback.
 
+The explicit [paged FP16 inference policy](gpu-paged-inference.md) also passes
+SmolLM2 reference, generation and ownership checks on Metal, with and without
+whole-decoder replay. Its separately declared accuracy gate is
+`0.03 + 0.003 * abs(reference)`; FP32 keeps the original bound. The maximum
+observed absolute error is 0.012817740 in both paged paths. Replay additionally
+checks a real-model page crossing and reuses the complete decoder graph between
+page boundaries. Use `--pretrained-inference paged-fp16` or `paged-fp16-replay`
+with the throughput provider in the consumer runner.
+
 This establishes CPU and native Metal pretrained-model acceptance. Quantized
-placement, paged-cache orchestration, batching,
+placement, shared-cache orchestration, batching,
 long-context behavior, corpus training and further model-family adapters remain
 separate milestones. The [verification record](evidence/dependency-security-2026-11-27.json)
 links the captured scalar/SIMD reports and test commands.

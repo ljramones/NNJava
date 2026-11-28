@@ -100,9 +100,9 @@ allocation baselines. Run the commands in the
 [model-inference guide](gpu-model-inference.md); see the
 [sampling verification record](evidence/gpu-sampling-2026-11-27.json).
 
-Paged cache integration remains next. DynamisGPU's `PagedKvCache` stores FP16 and
-feeds fused FP16 attention, requiring an explicit precision policy and new model
-accuracy checks. Whole-model decode replay also remains planned: recordings
-require stable bindings and cannot include readbacks/error checks. This batch
-retains the verified fixed FP32 cache and normal per-operation recording. No
-throughput speedup, Vulkan coverage or full GPU Trainer workflow is claimed.
+The explicit [paged inference policy](gpu-paged-inference.md) now integrates
+DynamisGPU's FP16 `PagedKvCache`, fused attention and complete decoder recording.
+Use `.model(model, InferenceOptions.pagedFp16().withRecordedDecode())` to combine
+it with device sampling. The default FP32 cache and the exact-mode boundary are
+unchanged. Controlled speed measurements, Vulkan coverage and full GPU Trainer
+workflows remain separate work.

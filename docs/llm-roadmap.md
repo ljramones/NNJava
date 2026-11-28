@@ -13,9 +13,13 @@ and DynamisGPU 1.14.1. General weight/tokenizer readers and the first optional L
 adapter are implemented; SmolLM2-135M passes scalar/SIMD CPU and both native Metal
 GPU modes against independent reference tokens/logits, with cached generation.
 Further checkpoint compatibility, corpus workflows, adaptation,
-optimized GPU cache/replay and scale features remain separate milestones. Explicit
+shared-cache orchestration and scale features remain separate milestones. Explicit
 [device sampling](gpu-sampling.md) is implemented with tensor logits/token feedback. The standalone
 GGUF/Metal experiment retains its own dependency and accuracy limits.
+
+The [paged inference policy](gpu-paged-inference.md) implements single-sequence
+FP16 cache/attention and whole-decoder replay in throughput mode, with separate
+SmolLM2 accuracy acceptance. Shared pools, prefix sharing and batching remain planned.
 
 ## Library and application responsibilities
 
@@ -61,6 +65,8 @@ that silently imply unsupported options.
   memory limits, and admission/backpressure. Continuous batching follows a correct
   single-request path. Command replay must refresh bindings as cache pages and
   active batch shapes change.
+  Single-sequence paged FP16 storage and page-scoped decoder replay are implemented;
+  the remaining serving features above keep their own acceptance gates.
 - **LM-16:** later beam search, constrained-decoding hooks, and speculative decoding.
   Speculative acceptance must preserve the selected target sampling distribution;
   each advanced strategy needs its own correctness and performance evidence.

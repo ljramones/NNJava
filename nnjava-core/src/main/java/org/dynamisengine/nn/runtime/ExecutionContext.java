@@ -19,6 +19,7 @@ public final class ExecutionContext implements AutoCloseable {
     private final Backend backend;
     private final Set<Buffer> buffers = new LinkedHashSet<>();
     private final List<Pending> pending = new ArrayList<>();
+    private final Set<AutoCloseable> resources = new LinkedHashSet<>();
     private GradientTape activeTape;
     private RuntimeException failure;
     private boolean closed;
@@ -63,6 +64,35 @@ public final class ExecutionContext implements AutoCloseable {
         ensureOpen(); return backend.supportsSampling(Objects.requireNonNull(options), rows, vocabulary);
     }
     public long maxElements(DType dtype) { ensureOpen(); return backend.maxElements(dtype); }
+
+    public boolean supportsPagedAttention(PagedAttentionState.Config config) {
+        ensureOpen(); return backend.supportsPagedAttention(Objects.requireNonNull(config));
+    }
+    public boolean supportsCommandRecording() { ensureOpen(); return backend.supportsCommandRecording(); }
+    public PagedAttentionCache pagedAttention(PagedAttentionState.Config config) {
+        ensureOpen();
+        if (activeTape != null) { throw new IllegalStateException("Paged attention is inference-only"); }
+        if (!supportsPagedAttention(config)) { throw new UnsupportedOperationException("Provider cannot execute this paged FP16 attention policy"); }
+        var result = new PagedAttentionCache(this, config, backend.createPagedAttention(config));
+        resources.add(result); return result;
+    }
+    /** Capture fixed-shape inference, taking ownership of the supplier's output. No readbacks or weight mutation. */
+    public RecordedExecution record(Supplier<Tensor> compute) {
+        ensureOpen(); Objects.requireNonNull(compute);
+        if (activeTape != null) { throw new IllegalStateException("Recorded execution is inference-only"); }
+        if (!supportsCommandRecording()) { throw new UnsupportedOperationException("Provider cannot record commands"); }
+        synchronize();
+        try (var capture = backend.beginCommandCapture()) {
+            Tensor output = Objects.requireNonNull(compute.get());
+            try {
+                requireContext(output);
+                var result = new RecordedExecution(this, capture.finish(), output);
+                resources.add(result); return result;
+            } catch (RuntimeException | Error error) { output.close(); throw error; }
+        }
+    }
+    void releaseResource(AutoCloseable resource) { resources.remove(resource); }
+    void enqueueExternal(Supplier<Completion> operation, List<Tensor> values) { enqueue(operation, values); }
 
     public void checkThread() {
         if (Thread.currentThread() != owner) {
@@ -430,12 +460,20 @@ public final class ExecutionContext implements AutoCloseable {
             }
             synchronize();
         } finally {
+            RuntimeException closeFailure = null;
+            for (AutoCloseable resource : List.copyOf(resources).reversed()) {
+                try { resource.close(); } catch (Exception error) {
+                    if (closeFailure == null) { closeFailure = new IllegalStateException("Inference resource close failed", error); }
+                    else { closeFailure.addSuppressed(error); }
+                }
+            }
             for (Buffer buffer : Set.copyOf(buffers)) {
                 buffer.close();
             }
             buffers.clear();
             closed = true;
             backend.close();
+            if (closeFailure != null) { throw closeFailure; }
         }
     }
 

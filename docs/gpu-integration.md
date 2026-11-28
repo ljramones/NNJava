@@ -131,7 +131,10 @@ functions, sums/norms, batched GEMM and gradient compositions on Metal. The
 embedding/masked GQA gradients. The [model-inference integration](gpu-model-inference.md)
 adds supplied-weight construction/loading and full SmolLM2 device-cache inference
 in both Metal modes. [Device sampling](gpu-sampling.md) now runs through the provider
-SPI with direct token feedback. Paged caches and recorded decoding remain next.
+SPI with direct token feedback. The explicit [paged inference policy](gpu-paged-inference.md)
+also integrates FP16 K/V pages, fused attention and whole-decoder recording in
+throughput mode, including separate SmolLM2 precision acceptance. Shared pools,
+prefix sharing, batching and controlled end-to-end benchmarks remain next.
 
 ## History
 

@@ -15,7 +15,9 @@ The adapter now implements FP32 activations, softmax/norms/dropout, sums/norms,
 batched GEMM, word masks/casts, gather/scatter, concat/slice gradients, max/argmax,
 RoPE and supported gradients in both modes. See [GPU neural operations](gpu-neural-operations.md)
 and [GPU tensor operations](gpu-tensor-operations.md) for layouts and semantic selections.
-[GPU sampling](gpu-sampling.md) adds provider sampling and tensor-token feedback. This
+[GPU sampling](gpu-sampling.md) adds provider sampling and tensor-token feedback;
+[paged inference](gpu-paged-inference.md) adds explicit FP16 cache/attention and
+whole-decoder replay. This
 coverage table describes upstream availability; it is not a claim that every row
 is already wired through NNJava.
 
@@ -158,6 +160,7 @@ NNJava requests each kernel from the library whose tier it needs, and never writ
 - **Accuracy:** `AccuracyContract` on every primitive.
 - **Inference:**
     - `PagedKvCache`, the GPU `Sampler`, and `Embedding` by GPU-resident tokens. Together they make a decode loop whose
-      logits never return to the host.
+      logits never return to the host. NNJava now integrates all three with the
+      explicit [paged FP16/recorded inference policy](gpu-paged-inference.md).
     - `GgufBlocks`, `QuantizedMatrix` and `QuantizedGemm` hold quantized weights. DynamisGPU 1.10 left the GGUF
       container reader (the file parser) to NNJava; see IO-04 in the [roadmap](roadmap.md).

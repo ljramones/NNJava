@@ -104,7 +104,7 @@ It rejects unsupported operations/layouts before submission and never
 performs implicit CPU numerical fallback. Explicit host readbacks may unpack a
 view from its allocation on the host.
 
-Stateful optimizers, cross-entropy, normal initialization and FP16/BF16 computation
+Stateful optimizers, cross-entropy, normal initialization and general FP16/BF16 Ops
 remain unsupported through this adapter. These gates must pass before claiming
 complete Trainer workflows. Supplied-weight model construction and FP32 transformer
 inference now pass on Metal through the explicit loading policy; see
@@ -113,7 +113,10 @@ for the tested compositions, row limits and tier choices.
 The [tensor-operation guide](gpu-tensor-operations.md) adds embedding/rotary/masked
 GQA gradient checks, layout semantics and invalid-index completion behavior.
 The [GPU sampling guide](gpu-sampling.md) covers tensor-token generation with no
-logit downloads. Per-step arenas, replay and paged caches remain subsequent work.
+logit downloads. The optional [paged inference policy](gpu-paged-inference.md)
+integrates FP16 Q/K/V attention/cache storage and whole-decoder replay in throughput
+mode without adding native dependencies to transformer or generation. Shared
+pools, per-step arenas and controlled performance measurements remain subsequent work.
 
 Native runtimes are supplied by the application. DynamisGPU 1.14.1's native jars
 export provider constructors but do not register `GpuProvider` services; the adapter

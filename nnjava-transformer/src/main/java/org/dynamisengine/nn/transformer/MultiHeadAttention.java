@@ -7,6 +7,7 @@ import org.dynamisengine.nn.nn.ParameterInitialization;
 import org.dynamisengine.nn.nn.UnaryModule;
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.runtime.ExecutionContext;
+import org.dynamisengine.nn.runtime.CachedAttention;
 import org.dynamisengine.nn.tensor.Shape;
 import org.dynamisengine.nn.tensor.Tensor;
 
@@ -50,6 +51,10 @@ public final class MultiHeadAttention extends AbstractModule implements UnaryMod
     }
 
     public Tensor decode(Tensor input, KvCache cache, Tensor allowed) {
+        return decode(input, (CachedAttention) cache, allowed);
+    }
+
+    public Tensor decode(Tensor input, CachedAttention cache, Tensor allowed) {
         ensureOpen();
         if (context.activeTape() != null) {
             throw new IllegalStateException("Cached attention is inference-only");
@@ -57,7 +62,7 @@ public final class MultiHeadAttention extends AbstractModule implements UnaryMod
         return compute(input, allowed, true, cache);
     }
 
-    private Tensor compute(Tensor input, Tensor allowed, boolean causal, KvCache cache) {
+    private Tensor compute(Tensor input, Tensor allowed, boolean causal, CachedAttention cache) {
         ensureOpen();
         context.requireContext(input);
         if (input.shape().rank() != 3 || input.shape().dimension(2) != config.features || input.shape().dimension(1) == 0) {
@@ -70,11 +75,8 @@ public final class MultiHeadAttention extends AbstractModule implements UnaryMod
              Tensor v = project(value, input, batch, time, config.kvHeads);
              Tensor rq = rotary == null ? q.retain() : rotary.forward(q, position);
              Tensor rk = rotary == null ? k.retain() : rotary.forward(k, position)) {
-            if (cache != null) {
-                cache.append(rk, v);
-            }
-            try (Tensor keys = cache == null ? rk.retain() : cache.keys(); Tensor values = cache == null ? v.retain() : cache.values();
-                 Tensor attended = Attention.scaledDotProduct(rq, keys, values, allowed, causal, position, dropout);
+            try (Tensor attended = cache == null ? Attention.scaledDotProduct(rq, rk, v, allowed, causal, position, dropout)
+                    : cache instanceof KvCache fixed ? fixed.attend(rq, rk, v, allowed, dropout) : cache.attend(rq, rk, v, allowed);
                  Tensor ordered = Ops.permute(attended, 0, 2, 1, 3); Tensor packed = Ops.contiguous(ordered);
                  Tensor merged = Ops.reshape(packed, Shape.of(batch, time, config.features))) {
                 return output.forward(merged);
