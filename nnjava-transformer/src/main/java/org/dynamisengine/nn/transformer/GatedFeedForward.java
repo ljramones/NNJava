@@ -24,7 +24,10 @@ public final class GatedFeedForward extends AbstractModule implements UnaryModul
             gate = register("gate", new Linear(context, features, hidden, seed, false, initialization));
             up = register("up", new Linear(context, features, hidden, seed + 1, false, initialization));
             down = register("down", new Linear(context, hidden, features, seed + 2, false, initialization));
-        } catch (RuntimeException | Error error) { close(); throw error; }
+        } catch (RuntimeException | Error error) {
+            close();
+            throw error;
+        }
     }
 
     @Override

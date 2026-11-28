@@ -1,13 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>example</groupId><artifactId>nnjava-generation-consumer</artifactId><version>1.0-SNAPSHOT</version>
-    <properties><maven.compiler.release>25</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
-    <dependencyManagement><dependencies><dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-bom</artifactId><version>0.1.0-SNAPSHOT</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement>
+    <groupId>example</groupId>
+    <artifactId>nnjava-generation-consumer</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.dynamisengine</groupId>
+                <artifactId>nnjava-bom</artifactId>
+                <version>0.1.0-SNAPSHOT</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
-        <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-generation</artifactId></dependency>
-        <dependency><groupId>org.dynamisengine</groupId><artifactId>nnjava-backend-vectrix</artifactId></dependency>
+        <dependency>
+            <groupId>org.dynamisengine</groupId>
+            <artifactId>nnjava-generation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.dynamisengine</groupId>
+            <artifactId>nnjava-backend-vectrix</artifactId>
+        </dependency>
     </dependencies>
-    <build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.1</version></plugin></plugins></build>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.14.1</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>

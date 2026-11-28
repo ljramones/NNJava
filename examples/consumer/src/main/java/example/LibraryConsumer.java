@@ -2,6 +2,7 @@ package example;
 
 import java.nio.file.Files;
 import java.util.Map;
+
 import org.dynamisengine.nn.data.DataLoader;
 import org.dynamisengine.nn.data.TensorDataset;
 import org.dynamisengine.nn.nn.*;
@@ -44,27 +45,31 @@ public final class LibraryConsumer {
 
     private static void verifyTrainer() throws Exception {
         var definition = NeuralNetwork.builder().inputFeatures(2).seed(42)
-                .dense("hidden",8,Activation.Kind.TANH).dense("output",2).define();
+                .dense("hidden", 8, Activation.Kind.TANH).dense("output", 2).define();
         var optimizer = Optimizers.adamW().learningRate(.03f).define();
         var path = Files.createTempFile("nnjava-consumer-training-", ".nnj");
         try {
             try (var context = ExecutionContext.cpu(); var model = definition.build(context); var restored = definition.build(context);
-                 var input = context.tensor(new float[]{0,0,0,1,1,0,1,1},Shape.of(4,2));
-                 var target = context.tensor(new int[]{0,1,1,0},Shape.of(4));
-                 var data = new TensorDataset(Map.of("input",input,"target",target));
-                 var loader = DataLoader.builder(context,data).batchSize(4).build();
-                 var resumedLoader = DataLoader.builder(context,data).batchSize(4).build();
+                 var input = context.tensor(new float[]{0, 0, 0, 1, 1, 0, 1, 1}, Shape.of(4, 2));
+                 var target = context.tensor(new int[]{0, 1, 1, 0}, Shape.of(4));
+                 var data = new TensorDataset(Map.of("input", input, "target", target));
+                 var loader = DataLoader.builder(context, data).batchSize(4).build();
+                 var resumedLoader = DataLoader.builder(context, data).batchSize(4).build();
                  var trainer = Trainer.builder().model(model).optimizer(optimizer).build();
                  var resumed = Trainer.builder().model(restored).optimizer(optimizer).build()) {
-                double first = trainer.evaluate(loader).loss(); trainer.fit(loader,200);
-                trainer.save(path,loader); resumed.restore(path,resumedLoader);
+                double first = trainer.evaluate(loader).loss();
+                trainer.fit(loader, 200);
+                trainer.save(path, loader);
+                resumed.restore(path, resumedLoader);
                 var result = resumed.evaluate(resumedLoader);
-                if (result.loss() >= first*.1 || result.score()!=1 || !trainer.progress().equals(resumed.progress())) {
+                if (result.loss() >= first * .1 || result.score() != 1 || !trainer.progress().equals(resumed.progress())) {
                     throw new AssertionError("Consumer Trainer or checkpoint failed");
                 }
-                System.out.printf("Consumer Trainer CE: %.6f -> %.6f; restored updates: %d%n",first,result.loss(),resumed.progress().steps());
+                System.out.printf("Consumer Trainer CE: %.6f -> %.6f; restored updates: %d%n", first, result.loss(), resumed.progress().steps());
             }
-        } finally { Files.deleteIfExists(path); }
+        } finally {
+            Files.deleteIfExists(path);
+        }
     }
 
     static final class ConsumerDecoder extends AbstractModule implements UnaryModule {

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+
 import org.dynamisengine.nn.formats.Safetensors;
 import org.dynamisengine.nn.io.WeightLoader;
 import org.dynamisengine.nn.nn.Linear;
@@ -21,7 +22,9 @@ import org.dynamisengine.nn.runtime.ExecutionContext;
 import org.dynamisengine.nn.tensor.Shape;
 import org.dynamisengine.nn.transformer.CausalLanguageModel;
 
-/** Fluent model definitions, archives and decoder sessions without training/data dependencies. */
+/**
+ * Fluent model definitions, archives and decoder sessions without training/data dependencies.
+ */
 public final class InferenceConsumer {
     public static void main(String[] args) throws Exception {
         verifyExternalWeights();
@@ -34,54 +37,70 @@ public final class InferenceConsumer {
             ModelDefinitions.write(description, definition.specification());
             var restoredDefinition = CausalLanguageModel.Definition.fromSpec(ModelDefinitions.read(description));
             try (var context = ExecutionContext.cpu(); var model = definition.build(context);
-                    var restored = restoredDefinition.build(context);
-                    var tokens = context.tensor(new int[] {0, 1, 2}, Shape.of(1, 3))) {
+                 var restored = restoredDefinition.build(context);
+                 var tokens = context.tensor(new int[]{0, 1, 2}, Shape.of(1, 3))) {
                 try (var network = NeuralNetwork.builder().inputFeatures(2).dense("projection", 3).build(context);
-                        var input = context.tensor(new float[] {1, 2}, Shape.of(1, 2)); var output = network.forward(input)) {
-                    if (!output.shape().equals(Shape.of(1, 3))) { throw new AssertionError("Fluent NN shape differs"); }
+                     var input = context.tensor(new float[]{1, 2}, Shape.of(1, 2)); var output = network.forward(input)) {
+                    if (!output.shape().equals(Shape.of(1, 3))) {
+                        throw new AssertionError("Fluent NN shape differs");
+                    }
                 }
-                var cnnDefinition=NeuralNetwork.builder().inputShape(1,5,5).seed(42)
-                        .conv2d("features",Layers.conv2d(2,3).padding(1).activation(Activation.Kind.RELU))
-                        .maxPool2d("pool",2).flatten("flat").dense("head",2).define();
-                ModelDefinitions.write(description,cnnDefinition.specification());
-                try (var cnn=cnnDefinition.build(context); var restoredCnn=NeuralNetwork.Definition.fromSpec(ModelDefinitions.read(description)).build(context);
-                     var image=context.normal(Shape.of(2,1,5,5),7,.2f,false)) {
-                    cnn.training(false); StateArchive.saveWeights(weights,cnn); StateArchive.read(weights).restoreModel(restoredCnn);
-                    try (var expected=cnn.forward(image); var actual=restoredCnn.forward(image)) {
-                        if (!actual.shape().equals(Shape.of(2,2)) || !Arrays.equals(expected.toFloatArray(),actual.toFloatArray())) {
+                var cnnDefinition = NeuralNetwork.builder().inputShape(1, 5, 5).seed(42)
+                        .conv2d("features", Layers.conv2d(2, 3).padding(1).activation(Activation.Kind.RELU))
+                        .maxPool2d("pool", 2).flatten("flat").dense("head", 2).define();
+                ModelDefinitions.write(description, cnnDefinition.specification());
+                try (var cnn = cnnDefinition.build(context); var restoredCnn = NeuralNetwork.Definition.fromSpec(ModelDefinitions.read(description)).build(context);
+                     var image = context.normal(Shape.of(2, 1, 5, 5), 7, .2f, false)) {
+                    cnn.training(false);
+                    StateArchive.saveWeights(weights, cnn);
+                    StateArchive.read(weights).restoreModel(restoredCnn);
+                    try (var expected = cnn.forward(image); var actual = restoredCnn.forward(image)) {
+                        if (!actual.shape().equals(Shape.of(2, 2)) || !Arrays.equals(expected.toFloatArray(), actual.toFloatArray())) {
                             throw new AssertionError("Packaged CNN definition/weights restore failed");
                         }
                     }
                 }
-                for (var kind:RecurrentCell.Kind.values()) {
-                    var recurrentDefinition=Recurrent.builder().kind(kind).inputFeatures(2).hiddenSize(3).seed(42).define();
-                    ModelDefinitions.write(description,recurrentDefinition.specification());
-                    try (var sequence=recurrentDefinition.build(context);
-                         var loaded=Recurrent.Definition.fromSpec(ModelDefinitions.read(description)).build(context);
-                         var input=context.normal(Shape.of(2,4,2),7,.2f,false)) {
-                        StateArchive.saveWeights(weights,sequence); StateArchive.read(weights).restoreModel(loaded);
-                        try (var full=sequence.run(input); var expected=full.output(); var prefix=Ops.slice(input,1,0,2); var suffix=Ops.slice(input,1,2,4);
-                             var first=sequence.run(prefix); var carried=first.state(); var state=RecurrentState.fromSnapshot(context,carried.snapshot());
-                             var last=loaded.run(suffix,state); var actual=last.output(); var tail=Ops.slice(expected,1,2,4)) {
-                            if (!Arrays.equals(tail.toFloatArray(),actual.toFloatArray())) { throw new AssertionError("Packaged "+kind+" state/weight restore failed"); }
+                for (var kind : RecurrentCell.Kind.values()) {
+                    var recurrentDefinition = Recurrent.builder().kind(kind).inputFeatures(2).hiddenSize(3).seed(42).define();
+                    ModelDefinitions.write(description, recurrentDefinition.specification());
+                    try (var sequence = recurrentDefinition.build(context);
+                         var loaded = Recurrent.Definition.fromSpec(ModelDefinitions.read(description)).build(context);
+                         var input = context.normal(Shape.of(2, 4, 2), 7, .2f, false)) {
+                        StateArchive.saveWeights(weights, sequence);
+                        StateArchive.read(weights).restoreModel(loaded);
+                        try (var full = sequence.run(input); var expected = full.output(); var prefix = Ops.slice(input, 1, 0, 2); var suffix = Ops.slice(input, 1, 2, 4);
+                             var first = sequence.run(prefix); var carried = first.state(); var state = RecurrentState.fromSnapshot(context, carried.snapshot());
+                             var last = loaded.run(suffix, state); var actual = last.output(); var tail = Ops.slice(expected, 1, 2, 4)) {
+                            if (!Arrays.equals(tail.toFloatArray(), actual.toFloatArray())) {
+                                throw new AssertionError("Packaged " + kind + " state/weight restore failed");
+                            }
                         }
                     }
                 }
-                model.training(false); StateArchive.saveWeights(weights, model); StateArchive.read(weights).restoreModel(restored);
+                model.training(false);
+                StateArchive.saveWeights(weights, model);
+                StateArchive.read(weights).restoreModel(restored);
                 try (var expected = model.forward(tokens); var actual = restored.forward(tokens)) {
-                    if (!Arrays.equals(expected.toFloatArray(), actual.toFloatArray())) { throw new AssertionError("Restored model differs"); }
+                    if (!Arrays.equals(expected.toFloatArray(), actual.toFloatArray())) {
+                        throw new AssertionError("Restored model differs");
+                    }
                     try (var session = restored.newSession(1); var prefix = Ops.slice(tokens, 1, 0, 2);
-                            var suffix = Ops.slice(tokens, 1, 2, 3); var ignored = session.prefill(prefix);
-                            var cached = session.decode(suffix); var last = Ops.slice(actual, 1, 2, 3)) {
+                         var suffix = Ops.slice(tokens, 1, 2, 3); var ignored = session.prefill(prefix);
+                         var cached = session.decode(suffix); var last = Ops.slice(actual, 1, 2, 3)) {
                         float[] a = cached.toFloatArray(), b = last.toFloatArray();
                         for (int i = 0; i < a.length; i++) {
-                            if (Math.abs(a[i] - b[i]) > 2e-5f) { throw new AssertionError("Cached decoder differs"); }
+                            if (Math.abs(a[i] - b[i]) > 2e-5f) {
+                                throw new AssertionError("Cached decoder differs");
+                            }
                         }
                     }
                 }
                 System.out.println("Fluent NN/CNN/RNN/LM definitions, model-only/state restore and cached inference passed");
             }
-        } finally { Files.deleteIfExists(weights); Files.deleteIfExists(description); }
+        } finally {
+            Files.deleteIfExists(weights);
+            Files.deleteIfExists(description);
+        }
     }
 
     private static void verifyExternalWeights() throws Exception {
@@ -94,9 +113,13 @@ public final class InferenceConsumer {
                  var file = Safetensors.open(path)) {
                 WeightLoader.builder().transpose("external.kernel", "weight").build().load(file, model);
                 try (var input = context.tensor(new float[]{4, 5}, Shape.of(1, 2)); var output = model.forward(input)) {
-                    if (output.toFloatArray()[0] != 23) { throw new AssertionError("Packaged safetensors weight mapping failed"); }
+                    if (output.toFloatArray()[0] != 23) {
+                        throw new AssertionError("Packaged safetensors weight mapping failed");
+                    }
                 }
             }
-        } finally { Files.deleteIfExists(path); }
+        } finally {
+            Files.deleteIfExists(path);
+        }
     }
 }
