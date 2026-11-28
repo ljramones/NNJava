@@ -1,0 +1,61 @@
+{
+  "date": "2026-11-27",
+  "baseline": "cd27c47",
+  "targets": {"jdk": "25", "vectrix": "4.1.0", "dynamisgpu": "1.14.1"},
+  "implemented": [
+    "RNN(tanh), LSTM(IFGO) and reset-after GRU(RZN) cells composed from existing Vectrix-backed Ops",
+    "Explicit owned hidden/cell state, row reset, detach and neutral host snapshots",
+    "Stateless sequence unrolling, ALL/LAST selection, batch prefixes, INT32 valid lengths and zero padded outputs",
+    "Standalone cell/sequence definitions and fluent sequential recurrent layers",
+    "Recurrent model-only archives, full Trainer resume and separate carried-state restore",
+    "RNN, LSTM and GRU delayed-recall examples"
+  ],
+  "checks": [
+    {
+      "command": "mvn -o -q -Psimd,gpu,metal,benchmarks clean verify",
+      "status": "passed", "tests": 168, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -Pgpu,metal install",
+      "status": "passed", "tests": 168, "failures": 0, "errors": 0, "skipped": 0
+    },
+    {
+      "command": "mvn -o -q -f examples/pom.xml -Pgpu clean verify",
+      "status": "passed"
+    },
+    {
+      "command": "python3 tools/verify_module_consumers.py --gpu-metal",
+      "status": "passed",
+      "consumers": ["training", "model-only NN/CNN/RNN/LSTM/GRU/LM inference and recurrent state restore", "exact Metal", "throughput Metal"],
+      "device": "Apple M4 Max"
+    }
+  ],
+  "new_tests": {"cell_equations_and_gradients": 4, "sequences_and_state": 12, "builders_and_recovery": 9, "example_smoke_tests": 3},
+  "numerical_validation": [
+    "Independent batched cell equations with and without bias, explicit LSTM gate order and GRU reset-after bias convention",
+    "Finite differences over every parameter and input/initial hidden/cell element through multiple time steps",
+    "Independent masked row unrolling, zero-length rows, NaN padding isolation and zero padded-input gradients",
+    "Full/chunked forward and BPTT parity, explicit stop gradients at detach boundaries and foreign-tape rejection",
+    "Row reset gradients, strided sequence views, unbatched and multiple batch-prefix shapes",
+    "Neutral carried-state restore together with model weights in a new context",
+    "Preallocation capability checks and all six partial network-construction allocation failures for each cell kind",
+    "Every forward allocation failure in a two-step LSTM fixture releases transient state and permits retry",
+    "Byte-identical final model/optimizer/loader/loop archives after mid-epoch resume for every cell kind, with dropout, clipping and schedules"
+  ],
+  "examples": {
+    "training_sequences": 24, "held_out_sequences": 12, "optimizer_updates_each": 320,
+    "rnn": {"time_steps": 4, "initial_cross_entropy": 0.831615, "final_cross_entropy": 0.000135, "held_out_accuracy": 1.0},
+    "lstm": {"time_steps": 8, "initial_cross_entropy": 0.672523, "final_cross_entropy": 0.000110, "held_out_accuracy": 1.0},
+    "gru": {"time_steps": 8, "initial_cross_entropy": 0.651668, "final_cross_entropy": 0.000053, "held_out_accuracy": 1.0},
+    "resume": "Exact held-out output equality with uninterrupted training"
+  },
+  "limits": [
+    "Recurrent computation is CPU-only through the current NNJava adapter; no fused recurrent kernels or new shaders",
+    "Sequence time and flattened batch size must be positive; valid-length zero rows are supported",
+    "Lengths are validated by a host read; numerical state masking uses provider Ops",
+    "Trainer checkpoints cover the zero-start-per-batch model; application-owned carried state must be persisted separately with stream position",
+    "Unrolled tapes use memory proportional to sequence length",
+    "Bidirectional wrappers, projection/peephole LSTMs, recurrent dropout and other variants remain extensions",
+    "Synthetic recall tasks establish correctness, not long-memory or performance claims"
+  ]
+}

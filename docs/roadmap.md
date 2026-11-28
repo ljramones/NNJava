@@ -23,7 +23,8 @@ The build pins **Vectrix 4.1.0** and **DynamisGPU 1.14.1**. Implemented now:
 module/provider extraction, neutral archives, CPU/compatibility starters, BOM,
 examples, fluent sequential/Linear construction, versioned model definitions,
 configurable causal decoders, CPU prefill/decode sessions, supervised Trainer/data
-APIs, and grouped/depthwise CNN layers with max/average pooling. The optional GPU
+APIs, grouped/depthwise CNN layers with pooling, and RNN/LSTM/GRU cells, masked
+sequences, and explicit state. The optional GPU
 foundation supplies storage, selected FP32 arithmetic, and rank-two GEMM; complete
 GPU model execution remains pending.
 
@@ -113,8 +114,9 @@ The [fluent builder proposal](fluent-builders.md) gives example syntax and
 validation/ownership rules. NN and causal-model construction are implemented;
 Trainer, optimizer definitions, loader builders, weighted evaluation, callbacks,
 stopping, and loop checkpoints are implemented; see the [training guide](training-guide.md).
-CNN construction is documented in the [CNN guide](cnn-guide.md). Generation,
-recurrent families, and branched builders remain proposed.
+CNN and recurrent construction are documented in the [CNN guide](cnn-guide.md)
+and [recurrent guide](recurrent-guide.md). Generation and branched builders remain
+proposed; broader recurrent variants are later extensions.
 
 ## LLM capability track
 
@@ -143,7 +145,7 @@ its planned builder or orchestration API already exists.
 | NN-01 | Dense/activation/embedding/dropout/norm layers | Dense/activation/dropout/norm specifications implemented; additional layer facades planned | P0 R2 |
 | NN-02                         | Initialization, parameter freezing, and sharing APIs                                                  | Basic initialization/sharing exist; extensions planned                                                            | P1 R2/R4              |
 | NN-03 | Convolution, pooling, and vision-oriented layers | CPU Conv2d (groups/depthwise, rectangular kernels, stride/padding/dilation) and max/average Pool2d implemented; broader vision layers remain extensions | P1 R4 |
-| NN-04                         | Vanilla RNN, LSTM, and GRU cells/layers with explicit state                                           | Planned for recurrent examples                                                                                    | P1 R4                 |
+| NN-04 | Vanilla RNN, LSTM, and GRU cells/layers with explicit state | Implemented CPU cells and sequence builders, ALL/LAST outputs, lengths, reset/detach, state snapshots, and full/chunked BPTT | P1 R4 |
 | TRAIN-01 | Optimizers, groups, schedules, clipping, and losses | CPU primitives and immutable fluent AdamW/SGD settings implemented; advanced groups use factories | P0 R3 |
 | TRAIN-02 | Trainer, callbacks, validation, early stopping, cancellation | Implemented supervised CPU orchestration for NN/LM modules with weighted evaluation and cooperative stopping | P1 R3 |
 | DATA-01 | Deterministic batching and loader state | Implemented fluent loaders, configuration checks, and reproducible cursor/epoch restore | P0 R3 |
@@ -175,7 +177,7 @@ its planned builder or orchestration API already exists.
 | EX-02 | MLP example | Implemented fluent XOR MLP with definition and weight save/load | P0 R2/R3 |
 | EX-03 | Autoencoder example | Implemented bottleneck reconstruction with Trainer, shuffled data, evaluation, and exact resume | P1 R3/R4 |
 | EX-04 | CNN example | Implemented two-convolution classifier with held-out evaluation, definition restore and exact training resume | P1 R4 |
-| EX-05 / EX-06 / EX-07 | RNN, LSTM, and GRU examples | Planned | P1 R4 |
+| EX-05 / EX-06 / EX-07 | RNN, LSTM, and GRU examples | Implemented delayed-recall classifiers with held-out evaluation, definition restore and exact training resume | P1 R4 |
 | EX-08                         | Residual CNN example                                                                                  | Planned follow-on                                                                                                 | P1 after CNN support  |
 | EX-09 | Small causal transformer example | Implemented direct and fluent decoder examples with training, restore and cache checks | P0 R5 |
 | EX-10                         | Encoder/decoder sequence example                                                                      | Planned later architecture expansion                                                                              | P2 R5 L6              |
@@ -207,9 +209,10 @@ behavior and keep release gates explicit.
 ## First decisions and next design slice
 
 The module/provider foundation, CPU migration, first NN/LM builders, definition
-persistence, CPU cache sessions, supervised Trainer/data APIs, and CPU CNN support
-are implemented. Next add recurrent cells/state/sequence APIs and examples,
-expand GPU numerical coverage, add sequence-data packing/streaming, and
+persistence, CPU cache sessions, supervised Trainer/data APIs, CPU CNN support,
+and RNN/LSTM/GRU cells/sequences/examples are implemented. Next add reusable
+generation/tokenizer APIs, branched/residual builders, expanded GPU numerical
+coverage, sequence-data packing/streaming, and
 prepare the general-purpose real-model loading path
 with independent correctness gates. Preserve
 separate milestones for real-model inference and LM training. Use a nonlinear

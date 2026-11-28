@@ -23,6 +23,9 @@ mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=mlp-xor
 mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=causal-lm
 mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=autoencoder
 mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=cnn
+mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=rnn
+mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=lstm
+mvn -f nnjava-examples/pom.xml exec:java -Dexec.args=gru
 mvn -f examples/pom.xml verify                 # Independent training and inference consumers
 python3 tools/verify_module_consumers.py       # Model-only consumer on the module path
 ```
@@ -53,7 +56,7 @@ examples module, integration tests, and optional benchmarks/GPU adapters. The
 | Mathematics | Elementwise functions, masks/selection, total/axis reductions, vector norms, and broadcast batched Vectrix GEMM. |
 | Differentiation | First-order reverse mode, shared-input accumulation, broadcast/index gradients, saved-storage mutation checks, and explicit lifetime handling. |
 | Fluent construction | Immutable sequential/Linear and causal-decoder definitions, versioned definition files, named components, inferred sample shapes, reproducible seeds, and pre-allocation validation. |
-| Networks | Recursive modules, Linear, grouped/depthwise Conv2d, max/average pooling, activations, embeddings, dropout, LayerNorm/RMSNorm, residuals, and tied weights. |
+| Networks | Recursive modules, Linear, grouped/depthwise Conv2d, pooling, RNN/LSTM/GRU cells and sequences, explicit recurrent state/masks, activations, embeddings, dropout, norms, residuals, and tied weights. |
 | Training | Fluent Trainer/optimizer/loader APIs, MSE/cross-entropy, SGD/AdamW, groups/schedules, clipping, weighted evaluation, callbacks, stopping/cancellation, and deterministic batching. |
 | Persistence | Named state, aliases, module configuration/modes, optimizer slots/counters, random counters, loader metadata, CRC validation, and atomic replacement. |
 | Transformers | Configurable multi-layer causal decoders, MHA/MQA/GQA, masks/RoPE, feed-forward variants, norms/tied readouts, and independent prefill/decode cache sessions. |
@@ -71,6 +74,8 @@ evaluation, callbacks, and reproducible mid-epoch checkpoint resume. Explicit
 training loops remain supported.
 The [CNN guide](docs/cnn-guide.md) covers convolution/pooling geometry, gradients,
 fluent builders, and the runnable image-classification example.
+The [recurrent guide](docs/recurrent-guide.md) covers RNN/LSTM/GRU construction,
+masked sequences, carried state, full/truncated backpropagation, and recall examples.
 
 ## Compose a network
 
@@ -149,6 +154,7 @@ backend or imply complete GPU coverage through the tensor API.
 - [Implemented NN/LM builders and cache sessions](docs/model-builders.md)
 - [Fluent Trainer, evaluation, and checkpoint resume](docs/training-guide.md)
 - [Convolution, pooling, and CNN examples](docs/cnn-guide.md)
+- [RNN, LSTM, GRU, and recurrent state](docs/recurrent-guide.md)
 - [Implemented module migration and GPU foundation](docs/module-migration.md)
 - [Implementation roadmap and status](docs/roadmap.md)
 - [LLM capabilities and delivery milestones](docs/llm-roadmap.md)
@@ -163,7 +169,7 @@ backend or imply complete GPU coverage through the tensor API.
 - History: the original [DynamisGPU rework plan](docs/history/dynamisgpu-rework.md)
   and [execution commission](docs/history/dynamisgpu-commission.md)
 
-RNN/LSTM/GRU layers, branched builders, and broader
+Branched builders and broader
 architecture examples remain planned in the roadmap. Mixed precision,
 nested/higher-order differentiation, graph retention, distributed execution, and
 further performance work remain later extensions. A production LLM and its

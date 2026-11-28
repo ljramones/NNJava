@@ -7,7 +7,7 @@ the executable module in a chosen context.
 
 Implemented now: sequential/Linear and causal-language-model definitions, named
 NN builders, decoder configuration, custom-layer decoder hooks, checked definition
-files, CNN convolution/pooling, and CPU cache sessions. The [API guide](model-builders.md) documents exact
+files, CNN convolution/pooling, RNN/LSTM/GRU cells/sequences, and CPU cache sessions. The [API guide](model-builders.md) documents exact
 behavior and runnable examples. Trainer APIs are described in the
 [training guide](training-guide.md); generation builders remain proposed.
 
@@ -89,20 +89,20 @@ var imageClassifier = NeuralNetwork.builder()
     .define();
 ```
 
-Recurrent sequence builders remain proposed and should expose cell/state behavior
-and output selection:
+Recurrent sequence builders are implemented with explicit output selection:
 
 ```java
 var forecaster = NeuralNetwork.builder()
-    .sequenceInputFeatures(8)
-    .lstm("memory", r -> r.hiddenSize(64).output(SequenceOutput.LAST))
+    .inputShape(12, 8)
+    .lstm("memory", 64, SequenceOutput.LAST)
     .dense("prediction", 1)
     .define();
 ```
 
-Provide comparable RNN and GRU configuration, including state reset, masks,
-sequence lengths, and optional truncated backpropagation. Keep architecture
-examples in `nnjava-examples` and reusable convolution/recurrent layers in nn.
+Comparable RNN and GRU builders, explicit state/reset, masked sequence lengths,
+and full/truncated backpropagation are documented in the [recurrent guide](recurrent-guide.md).
+Architecture examples stay in `nnjava-examples`; reusable spatial/recurrent layers
+live in nn. Bidirectional and other recurrent variants remain extensions.
 
 ## Implemented language model builder
 

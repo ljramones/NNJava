@@ -26,6 +26,9 @@ public final class Layers {
     public static Convolution conv2d(long outputs,int height,int width) { return new Convolution(outputs,new Conv2dConfig(height,width),true,null); }
     public static Pooling maxPool2d(int window) { return new Pooling(Pool2d.Kind.MAX,new Pool2dConfig(window)); }
     public static Pooling avgPool2d(int window) { return new Pooling(Pool2d.Kind.AVERAGE,new Pool2dConfig(window)); }
+    public static RecurrentSpec rnn(long hidden) { return new RecurrentSpec(RecurrentCell.Kind.RNN,hidden,true,SequenceOutput.ALL); }
+    public static RecurrentSpec lstm(long hidden) { return new RecurrentSpec(RecurrentCell.Kind.LSTM,hidden,true,SequenceOutput.ALL); }
+    public static RecurrentSpec gru(long hidden) { return new RecurrentSpec(RecurrentCell.Kind.GRU,hidden,true,SequenceOutput.ALL); }
 
     public static LayerDefinition fromSpec(ComponentSpec spec) {
         if (!spec.children().isEmpty()) { throw new IllegalArgumentException(spec.name() + ": layer has unexpected children"); }
@@ -61,6 +64,10 @@ public final class Layers {
             case "nnjava.pool2d" -> {
                 spec.require("nnjava.pool2d",1,"kind","window","stride","padding");
                 yield new Pooling(Pool2d.Kind.valueOf(spec.attribute("kind")),new Pool2dConfig(spec.intValue("window"),spec.intValue("stride"),spec.intValue("padding")));
+            }
+            case "nnjava.recurrent-layer" -> {
+                spec.require("nnjava.recurrent-layer",1,"kind","hidden","bias","output");
+                yield new RecurrentSpec(RecurrentCell.Kind.valueOf(spec.attribute("kind")),spec.longValue("hidden"),spec.booleanValue("bias"),SequenceOutput.valueOf(spec.attribute("output")));
             }
             default -> throw new IllegalArgumentException("Unknown layer type: " + spec.type());
         };
@@ -213,6 +220,33 @@ public final class Layers {
         @Override public UnaryModule build(ExecutionContext context,Shape input,long seed) { validate(context,input,"pool2d"); return new Pool2d(context,kind,config); }
         @Override public ComponentSpec specification(String name) {
             return spec("nnjava.pool2d",name,Map.of("kind",kind.name(),"window",Integer.toString(config.window()),"stride",Integer.toString(config.stride()),"padding",Integer.toString(config.padding())));
+        }
+    }
+
+    /** A sequence layer over a [time,features] sample; batch axes are preserved. */
+    public record RecurrentSpec(RecurrentCell.Kind kind,long hiddenSize,boolean bias,SequenceOutput output) implements LayerDefinition {
+        public RecurrentSpec {
+            java.util.Objects.requireNonNull(kind); java.util.Objects.requireNonNull(output);
+            if (hiddenSize<1) { throw new IllegalArgumentException("Recurrent hidden size must be positive"); }
+            Math.multiplyExact(hiddenSize,kind.gates());
+        }
+        public RecurrentSpec bias(boolean value) { return new RecurrentSpec(kind,hiddenSize,value,output); }
+        public RecurrentSpec output(SequenceOutput value) { return new RecurrentSpec(kind,hiddenSize,bias,value); }
+        private long inputs(Shape input) {
+            if (input.rank()!=2) { throw new IllegalArgumentException("Recurrent layer requires a [time,features] sample shape"); }
+            ModelBuild.sampleShape(input); return input.dimension(1);
+        }
+        @Override public Shape outputShape(Shape input) {
+            inputs(input); return output==SequenceOutput.ALL ? Shape.of(input.dimension(0),hiddenSize) : Shape.of(hiddenSize);
+        }
+        @Override public void validate(ExecutionContext context,Shape input,String path) {
+            outputShape(input); Recurrent.validate(context,path,kind,inputs(input),hiddenSize,bias);
+        }
+        @Override public UnaryModule build(ExecutionContext context,Shape input,long seed) {
+            return new Recurrent.Definition("recurrent",kind,inputs(input),hiddenSize,bias,output,seed).build(context);
+        }
+        @Override public ComponentSpec specification(String name) {
+            return spec("nnjava.recurrent-layer",name,Map.of("kind",kind.name(),"hidden",Long.toString(hiddenSize),"bias",Boolean.toString(bias),"output",output.name()));
         }
     }
 

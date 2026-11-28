@@ -15,6 +15,9 @@ public final class Examples {
             System.out.println("causal-lm          Fluent decoder, training, restore and cached inference");
             System.out.println("autoencoder        Trainer, shuffled data, evaluation and checkpoint resume");
             System.out.println("cnn                Convolution/pooling image classifier, validation and resume");
+            System.out.println("rnn                Vanilla recurrent short-sequence recall, validation and resume");
+            System.out.println("lstm               LSTM delayed recall, validation and resume");
+            System.out.println("gru                GRU delayed recall, validation and resume");
             return;
         }
         switch (args[0]) {
@@ -24,6 +27,9 @@ public final class Examples {
             case "causal-lm" -> CausalLanguageModelExample.main(new String[0]);
             case "autoencoder" -> AutoencoderTrainingExample.main(new String[0]);
             case "cnn" -> CnnTrainingExample.main(new String[0]);
+            case "rnn" -> RecurrentTrainingExample.run(org.dynamisengine.nn.nn.RecurrentCell.Kind.RNN);
+            case "lstm" -> RecurrentTrainingExample.run(org.dynamisengine.nn.nn.RecurrentCell.Kind.LSTM);
+            case "gru" -> RecurrentTrainingExample.run(org.dynamisengine.nn.nn.RecurrentCell.Kind.GRU);
             default -> throw new IllegalArgumentException("Unknown example: " + args[0] + "; use --list");
         }
     }

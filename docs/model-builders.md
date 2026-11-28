@@ -32,7 +32,8 @@ terminal form when a separate definition is unnecessary.
 Supported sequential specifications include dense projections with optional
 activations, grouped/depthwise convolution, max/average pooling, standalone
 activations, dropout, LayerNorm/RMSNorm, flatten, and reshape. See the
-[CNN guide](cnn-guide.md) for spatial settings. `Layers.dense(32).bias(false)` configures an immutable layer through
+[CNN guide](cnn-guide.md) for spatial settings and the [recurrent guide](recurrent-guide.md)
+for RNN/LSTM/GRU specifications and explicit state. `Layers.dense(32).bias(false)` configures an immutable layer through
 `.layer("projection", specification)`. `Linear.builder()` also supports explicit
 input/output feature counts, bias selection, seed, definition, and construction.
 Additional initializer families and precision policies remain planned.

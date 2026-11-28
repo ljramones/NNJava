@@ -7,6 +7,9 @@ import org.dynamisengine.nn.io.StateArchive;
 import org.dynamisengine.nn.nn.NeuralNetwork;
 import org.dynamisengine.nn.nn.Layers;
 import org.dynamisengine.nn.nn.Activation;
+import org.dynamisengine.nn.nn.Recurrent;
+import org.dynamisengine.nn.nn.RecurrentCell;
+import org.dynamisengine.nn.nn.RecurrentState;
 import org.dynamisengine.nn.ops.Ops;
 import org.dynamisengine.nn.runtime.ExecutionContext;
 import org.dynamisengine.nn.tensor.Shape;
@@ -43,6 +46,20 @@ public final class InferenceConsumer {
                         }
                     }
                 }
+                for (var kind:RecurrentCell.Kind.values()) {
+                    var recurrentDefinition=Recurrent.builder().kind(kind).inputFeatures(2).hiddenSize(3).seed(42).define();
+                    ModelDefinitions.write(description,recurrentDefinition.specification());
+                    try (var sequence=recurrentDefinition.build(context);
+                         var loaded=Recurrent.Definition.fromSpec(ModelDefinitions.read(description)).build(context);
+                         var input=context.normal(Shape.of(2,4,2),7,.2f,false)) {
+                        StateArchive.saveWeights(weights,sequence); StateArchive.read(weights).restoreModel(loaded);
+                        try (var full=sequence.run(input); var expected=full.output(); var prefix=Ops.slice(input,1,0,2); var suffix=Ops.slice(input,1,2,4);
+                             var first=sequence.run(prefix); var carried=first.state(); var state=RecurrentState.fromSnapshot(context,carried.snapshot());
+                             var last=loaded.run(suffix,state); var actual=last.output(); var tail=Ops.slice(expected,1,2,4)) {
+                            if (!Arrays.equals(tail.toFloatArray(),actual.toFloatArray())) { throw new AssertionError("Packaged "+kind+" state/weight restore failed"); }
+                        }
+                    }
+                }
                 model.training(false); StateArchive.saveWeights(weights, model); StateArchive.read(weights).restoreModel(restored);
                 try (var expected = model.forward(tokens); var actual = restored.forward(tokens)) {
                     if (!Arrays.equals(expected.toFloatArray(), actual.toFloatArray())) { throw new AssertionError("Restored model differs"); }
@@ -55,7 +72,7 @@ public final class InferenceConsumer {
                         }
                     }
                 }
-                System.out.println("Fluent NN/CNN/LM definitions, model-only restore and cached inference passed");
+                System.out.println("Fluent NN/CNN/RNN/LM definitions, model-only/state restore and cached inference passed");
             }
         } finally { Files.deleteIfExists(weights); Files.deleteIfExists(description); }
     }

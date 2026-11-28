@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 
 /** These small fixtures exercise the runnable public-API workflows, including temporary-file cleanup. */
 class ExamplesSmokeTest {
+    @Test void rnnTrainsValidatesAndResumes() throws Exception { Examples.main(new String[]{"rnn"}); }
+    @Test void lstmTrainsValidatesAndResumes() throws Exception { Examples.main(new String[]{"lstm"}); }
+    @Test void gruTrainsValidatesAndResumes() throws Exception { Examples.main(new String[]{"gru"}); }
     @Test void cnnTrainsValidatesAndResumes() throws Exception { Examples.main(new String[] {"cnn"}); }
     @Test void autoencoderTrainsAndResumes() throws Exception { Examples.main(new String[] {"autoencoder"}); }
     @Test void fluentMlpTrainsAndRestores() throws Exception { Examples.main(new String[] {"mlp-xor"}); }
