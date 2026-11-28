@@ -21,7 +21,7 @@
         <vectrix.classifier></vectrix.classifier>
         <nn.jvm.args></nn.jvm.args>
         <junit.version>5.11.0</junit.version>
-        <jackson.version>2.20.2</jackson.version>
+        <jackson.version>2.21.7</jackson.version>
     </properties>
     <modules>
         <module>nnjava-core</module>
